@@ -41,7 +41,7 @@ def add_paper(
         if len(parts) >= 2:
             notion_date = {"start": f"{parts[0]}-{parts[1]}-01"}
     properties = {
-        "Title": {"title": [{"text": {"content": paper["title"]}}]},
+        "Name": {"title": [{"text": {"content": paper["title"]}}]},
         "Category": {"select": {"name": category}},
         "Topics": {"multi_select": [{"name": t} for t in topics]},
         "Venue": {"select": {"name": paper.get("venue", "arXiv")}},
