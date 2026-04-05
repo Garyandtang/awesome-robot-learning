@@ -4,7 +4,9 @@
 
 cd /home/gary/Documents/awesome-robot-learning
 
-claude --print -p "You are a daily paper search agent. Follow these steps exactly:
+export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:/usr/local/bin:$PATH"
+
+timeout 30m claude --print -p "You are a daily paper search agent. Follow these steps exactly:
 
 1. Read the topic configurations:
    - Read /home/gary/Documents/research_idea/categories.yaml for the category list
@@ -40,7 +42,8 @@ for topic in topics:
     s2q = build_s2_query(kws)
     fields = topic.get('semantic_scholar_fields')
     s2_key = config.get('semantic_scholar', {}).get('api_key', '')
-    all_papers.extend(search_semantic_scholar(s2q, fields, 30, '2026', s2_key))
+    from datetime import datetime
+    all_papers.extend(search_semantic_scholar(s2q, fields, 30, str(datetime.now().year), s2_key))
 
 unique = deduplicate(all_papers, seen)
 print(json.dumps(unique, indent=2, ensure_ascii=False))
