@@ -24,6 +24,7 @@ Feel free to open a pull request for new papers/codes about robot learning.
 - [arXiv 2026.03](https://arxiv.org/abs/2603.12263), Ψ₀: An Open Foundation Model Towards Universal Humanoid Loco-Manipulation
 
 ## VLA (Vision-Language-Action)
+- [arXiv 2026.02](https://arxiv.org/abs/2602.18397), How Fast Can I Run My VLA? Demystifying VLA Inference Performance with VLA-Perf
 
 ## Force Control & Perception
 
