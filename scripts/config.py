@@ -23,6 +23,18 @@ def load_categories(path: Path | None = None) -> list[str]:
     return data["categories"]
 
 
+def load_feeds(feeds_path: Path | None = None) -> list[dict]:
+    """Load RSS feed subscriptions from feeds.yaml."""
+    if feeds_path is None:
+        cfg = load_config()
+        feeds_path = Path(cfg["awesome_repo"]["path"]) / "feeds.yaml"
+    if not feeds_path.exists():
+        return []
+    with open(feeds_path, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    return data.get("feeds", [])
+
+
 def load_active_topics(research_dir: Path | None = None) -> list[dict]:
     """Load all active topic configs from research_idea subdirectories."""
     if research_dir is None:

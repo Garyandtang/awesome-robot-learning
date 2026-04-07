@@ -1,0 +1,16 @@
+# Blog/RSS subscription sources
+# Tags associate feeds with research topics from categories.yaml
+# source: bootstrapped (cold-start) | conversation (user added) | discovered (monthly discovery)
+
+feeds:
+  - url: "https://lilianweng.github.io/index.xml"
+    name: "Lilian Weng"
+    tags: ["general-ai"]
+    added: "2026-04-07"
+    source: "manual"
+
+  - url: "https://bair.berkeley.edu/blog/feed.xml"
+    name: "BAIR Blog"
+    tags: ["manipulation", "sim-to-real", "general-ai"]
+    added: "2026-04-07"
+    source: "manual"
