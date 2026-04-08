@@ -435,7 +435,12 @@ def filter_candidates(
     if wiki_path is not None:
         wiki_path = Path(wiki_path)
         if wiki_path.is_dir():
-            wiki_concepts = _extract_wiki_concepts(wiki_path)
+            try:
+                from scripts.wiki_compiler import get_concept_index
+
+                wiki_concepts = get_concept_index(wiki_dir=wiki_path)
+            except ImportError:
+                wiki_concepts = _extract_wiki_concepts(wiki_path)
 
     # Level 3: LLM taste scoring
     results = llm_taste_score(ranked_l2, taste_profile, wiki_concepts)
