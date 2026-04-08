@@ -23,7 +23,7 @@ CATEGORIES_DIR = WIKI_DIR / "categories"
 # ---------------------------------------------------------------------------
 
 
-def _call_claude(prompt: str, timeout: int = 120) -> str:
+def _call_claude(prompt: str, timeout: int = 300) -> str:
     """Call claude --print with a prompt and return stdout.
 
     Raises RuntimeError if claude exits non-zero.
@@ -127,7 +127,9 @@ venue: "{paper.get('venue', '')}"
 compiled: "{date.today().isoformat()}"
 concepts: []
 ---
-```"""
+```
+
+重要：直接输出 Markdown 文章内容，不要输出任何解释、对话、或元评论。"""
 
 
 def _build_concept_extraction_prompt(
@@ -202,7 +204,9 @@ papers:
 ```
 
 使用 [[论文标题]] 格式创建到论文页面的 Obsidian 链接。
-全文使用中文。"""
+全文使用中文。
+
+重要：直接输出 Markdown 文章内容，不要输出任何解释、对话、或元评论。"""
 
 
 def _build_concept_update_prompt(
@@ -236,7 +240,9 @@ def _build_concept_update_prompt(
 5. 如果新论文与已有论文形成对比或互补，建立这些联系
 6. 保持文章的整体结构和连贯性
 
-全文使用中文。输出完整的更新后文章（包括 frontmatter）。"""
+全文使用中文。输出完整的更新后文章（包括 frontmatter）。
+
+重要：直接输出 Markdown 文章内容，不要输出任何解释、对话、或元评论。"""
 
 
 # ---------------------------------------------------------------------------
