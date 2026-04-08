@@ -25,6 +25,8 @@ def add_paper(
     topics: list[str],
     relevance: str,
     method_summary: str,
+    recommendation_reason: str = "",
+    source: str = "arXiv",
     config: dict | None = None,
 ) -> str:
     """Add a paper to the Notion database.
@@ -49,7 +51,12 @@ def add_paper(
         "Method Summary": {"rich_text": [{"text": {"content": method_summary[:2000]}}]} if method_summary else {"rich_text": []},
         "URL": {"url": paper.get("url", "")},
         "Has Code": {"checkbox": paper.get("has_code", False)},
+        "Source": {"select": {"name": source}},
     }
+    if recommendation_reason:
+        properties["Recommendation Reason"] = {
+            "rich_text": [{"text": {"content": recommendation_reason[:2000]}}]
+        }
     if notion_date:
         properties["Date"] = {"date": notion_date}
     if paper.get("project_url"):

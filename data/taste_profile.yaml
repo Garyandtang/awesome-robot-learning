@@ -1,0 +1,31 @@
+preferences:
+  like: []
+  dislike: []
+authors_whitelist: []
+authors_blacklist: []
+method_keywords_positive: []
+method_keywords_negative: []
+stats:
+  total_collected: 510
+  top_categories:
+  - category: Loco-Manipulation and Whole-Body-Control
+    count: 174
+  - category: Locomotion
+    count: 94
+  - category: Manipulation
+    count: 57
+  - category: Hardware Design
+    count: 38
+  - category: Physics-Based Character Animation
+    count: 33
+  - category: Teleoperation
+    count: 30
+  - category: Human Motion Analysis and Synthesis
+    count: 24
+  - category: Simulation Benchmark
+    count: 20
+  - category: Navigation
+    count: 16
+  - category: Sim-to-Real
+    count: 13
+  last_updated: '2026-04-07'
