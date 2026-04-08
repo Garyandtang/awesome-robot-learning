@@ -3,4 +3,5 @@ __pycache__/
 .pytest_cache/
 logs/
 data/*.npy
+data/embeddings/
 .superpowers/
