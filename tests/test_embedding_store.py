@@ -43,6 +43,50 @@ class TestTimeDecayWeights:
         weights = compute_time_decay_weights(0)
         assert len(weights) == 0
 
+    def test_date_based_newer_papers_higher_weight(self):
+        metadata = [
+            {"date": "2026.03"},  # newest
+            {"date": "2025.06"},
+            {"date": "2024.01"},
+            {"date": "2020.01"},  # oldest
+        ]
+        weights = compute_time_decay_weights(4, metadata=metadata)
+        assert len(weights) == 4
+        assert np.isclose(weights.sum(), 1.0)
+        # Newest paper should have highest weight
+        assert weights[0] > weights[1] > weights[2] > weights[3]
+
+    def test_date_based_ignores_corpus_order(self):
+        # Old paper first, new paper last — weights should still favor newest
+        metadata = [
+            {"date": "2020.01"},  # old, index 0
+            {"date": "2026.03"},  # new, index 1
+        ]
+        weights = compute_time_decay_weights(2, metadata=metadata)
+        assert weights[1] > weights[0], "Newer paper should have higher weight"
+
+    def test_date_based_fallback_on_missing_dates(self):
+        # Less than 50% have dates — should fall back to index-based
+        metadata = [{"date": "2026.03"}, {}, {}, {}, {}]
+        weights = compute_time_decay_weights(5, metadata=metadata)
+        # Fallback: index-based, so index 0 has highest weight
+        assert weights[0] > weights[-1]
+        expected_raw = 1.0 / (1.0 + np.log10(np.arange(5) + 1))
+        expected = expected_raw / expected_raw.sum()
+        np.testing.assert_array_almost_equal(weights, expected)
+
+    def test_date_based_handles_invalid_date_strings(self):
+        metadata = [
+            {"date": "2026.03"},
+            {"date": "Asia"},  # invalid
+            {"date": "2025.01"},
+        ]
+        weights = compute_time_decay_weights(3, metadata=metadata)
+        assert len(weights) == 3
+        assert np.isclose(weights.sum(), 1.0)
+        # "Asia" gets median age, newest still highest
+        assert weights[0] > weights[2]
+
 
 class TestSimilarityScores:
     def test_identical_vectors(self):

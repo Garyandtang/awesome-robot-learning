@@ -71,15 +71,56 @@ def encode_texts(
     return embeddings
 
 
-def compute_time_decay_weights(n: int) -> np.ndarray:
+def _parse_date_to_months(date_str: str) -> float | None:
+    """Parse a date string like '2026.03' or '2026' to months since 2000-01.
+
+    Returns None if parsing fails.
+    """
+    if not date_str or not date_str[0].isdigit():
+        return None
+    parts = date_str.split(".")
+    try:
+        year = int(parts[0])
+        month = int(parts[1]) if len(parts) > 1 else 6  # default mid-year
+        return (year - 2000) * 12 + month
+    except (ValueError, IndexError):
+        return None
+
+
+def compute_time_decay_weights(
+    n: int,
+    metadata: list[dict] | None = None,
+) -> np.ndarray:
     """Compute time-decay weights for n corpus papers.
 
-    Formula: w_i = 1 / (1 + log10(i + 1)), normalized so sum(w) = 1
-    Index 0 = most recently collected paper (highest weight).
+    If metadata is provided, uses actual publication dates so newer papers
+    get higher weight regardless of corpus ordering.
+
+    Formula (date-based): w_i = exp(-lambda * age_months), normalized.
+    Formula (fallback):   w_i = 1 / (1 + log10(i + 1)), normalized.
     """
     if n == 0:
         return np.array([], dtype=np.float64)
 
+    # Try date-based weights if metadata available
+    if metadata is not None and len(metadata) == n:
+        months = [_parse_date_to_months(p.get("date", "")) for p in metadata]
+        valid = [m for m in months if m is not None]
+
+        if len(valid) >= n * 0.5:  # need at least 50% valid dates
+            max_month = max(valid)
+            # age in months; papers without date get median age
+            median_age = np.median([max_month - m for m in valid])
+            ages = np.array([
+                (max_month - m) if m is not None else median_age
+                for m in months
+            ])
+            # Exponential decay: half-life ~24 months
+            decay_lambda = np.log(2) / 24.0
+            raw_weights = np.exp(-decay_lambda * ages)
+            return raw_weights / raw_weights.sum()
+
+    # Fallback: index-based decay
     indices = np.arange(n)
     raw_weights = 1.0 / (1.0 + np.log10(indices + 1))
     return raw_weights / raw_weights.sum()

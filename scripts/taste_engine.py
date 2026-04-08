@@ -167,8 +167,10 @@ def embedding_rank(
         )
         return _fallback_sort(candidates, top_k)
 
-    # Compute time decay weights and rank
-    time_weights = compute_time_decay_weights(corpus_embeddings.shape[0])
+    # Compute time decay weights using real publication dates
+    time_weights = compute_time_decay_weights(
+        corpus_embeddings.shape[0], metadata=corpus_metadata
+    )
     ranked = rank_candidates(
         candidates,
         candidate_embeddings,
