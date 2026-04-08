@@ -130,7 +130,8 @@ def embedding_rank(
     # Load embedding config for minimum corpus size
     try:
         emb_config = load_embedding_config()
-    except Exception:
+    except Exception as exc:
+        logger.warning("Failed to load embedding config, using defaults: %s", exc)
         emb_config = {"corpus_min_for_ranking": 10}
 
     corpus_min = emb_config.get("corpus_min_for_ranking", 10)
@@ -309,6 +310,13 @@ def llm_taste_score(
             text=True,
             timeout=300,
         )
+        if result.returncode != 0:
+            logger.warning(
+                "Claude CLI exited with code %d: %s",
+                result.returncode,
+                result.stderr.strip()[:200],
+            )
+            return _fallback_llm_scores(papers)
         raw_output = result.stdout.strip()
     except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
         logger.warning("LLM scoring failed: %s", exc)
@@ -323,14 +331,22 @@ def llm_taste_score(
         logger.warning("Failed to parse LLM output, using fallback scores")
         return _fallback_llm_scores(papers)
 
+    if not isinstance(scores, list):
+        logger.warning("LLM returned non-list JSON, using fallback scores")
+        return _fallback_llm_scores(papers)
+
+    VALID_RELEVANCE = {"High", "Medium", "Low"}
+
     scored_papers: list[ScoredPaper] = []
     for entry in scores:
         idx = entry.get("index", 0) - 1  # 1-indexed -> 0-indexed
         if 0 <= idx < len(papers):
+            raw_relevance = entry.get("relevance", "Medium")
+            relevance = raw_relevance if raw_relevance in VALID_RELEVANCE else "Medium"
             scored_papers.append(
                 ScoredPaper(
                     paper=papers[idx],
-                    relevance=entry.get("relevance", "Medium"),
+                    relevance=relevance,
                     reason=entry.get("reason", "LLM评分"),
                     embedding_score=papers[idx].get("_embedding_score", 0.0),
                     source_level="llm",

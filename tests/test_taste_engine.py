@@ -2,6 +2,7 @@
 
 import subprocess
 
+import numpy as np
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -82,6 +83,12 @@ def test_hard_rule_filter_case_insensitive():
     assert len(result) == 1
 
 
+def test_hard_rule_filter_negative_overrides_author_boost():
+    papers = [_make_paper("Medical Imaging Robot", authors=["Pieter Abbeel"])]
+    result = hard_rule_filter(papers, SAMPLE_TASTE)
+    assert len(result) == 0
+
+
 # === Level 2 Tests (mocked encoder) ===
 
 
@@ -92,8 +99,6 @@ def test_hard_rule_filter_case_insensitive():
 def test_embedding_rank_returns_top_k(
     mock_rank, mock_load, mock_encode, mock_weights, tmp_path
 ):
-    import numpy as np
-
     mock_load.return_value = (np.zeros((20, 768)), [{}] * 20)
     mock_encode.return_value = np.zeros((50, 768))
     mock_weights.return_value = np.ones(20) / 20
@@ -115,8 +120,6 @@ def test_embedding_rank_returns_top_k(
 def test_embedding_rank_preserves_author_boost(
     mock_rank, mock_load, mock_encode, mock_weights, tmp_path
 ):
-    import numpy as np
-
     mock_load.return_value = (np.zeros((20, 768)), [{}] * 20)
     mock_encode.return_value = np.zeros((10, 768))
     mock_weights.return_value = np.ones(20) / 20
