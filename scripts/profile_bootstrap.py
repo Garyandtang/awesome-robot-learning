@@ -17,6 +17,8 @@ ENTRY_RE = re.compile(
 )
 PROJECT_URL_RE = re.compile(r"\[website\]\(([^)]+)\)")
 SECTION_RE = re.compile(r"^## (.+)$")
+# Matches date patterns like "2026.03", "2025", "2024.12"
+_DATE_RE = re.compile(r"\b(\d{4}(?:\.\d{2})?)\s*$")
 
 
 def parse_awesome_list_entries(readme_text: str) -> list[dict]:
@@ -54,9 +56,14 @@ def parse_awesome_list_entries(readme_text: str) -> list[dict]:
         arxiv_id = parse_arxiv_id(url) or ""
 
         # Parse venue and date from venue_date string like "arXiv 2026.03"
-        parts = venue_date.split()
-        venue = parts[0] if parts else ""
-        date_str = parts[1] if len(parts) > 1 else ""
+        # Handle multi-word venues: "RA-L 2024.01", "website 2025.11"
+        date_match = _DATE_RE.search(venue_date)
+        if date_match:
+            date_str = date_match.group(1)
+            venue = venue_date[:date_match.start()].strip()
+        else:
+            date_str = ""
+            venue = venue_date
 
         entries.append({
             "title": title,

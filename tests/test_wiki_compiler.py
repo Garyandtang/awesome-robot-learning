@@ -57,6 +57,20 @@ def test_paper_prompt_contains_existing_concepts():
     assert "Sim-to-Real Transfer" in prompt
     assert "RL from Human Feedback" in prompt
 
+def test_paper_prompt_uses_fulltext_when_available():
+    paper = {**_make_paper(), "_fulltext": "This is the full paper content with details."}
+    prompt = _build_paper_prompt(paper, [])
+    assert "论文全文" in prompt
+    assert "full paper content" in prompt
+    # Should NOT contain "- 摘要:" content block (fulltext replaces it)
+    assert "- 摘要:" not in prompt
+
+def test_paper_prompt_falls_back_to_abstract():
+    paper = _make_paper()
+    prompt = _build_paper_prompt(paper, [])
+    assert "- 摘要:" in prompt
+    assert "论文全文" not in prompt
+
 def test_concept_extraction_prompt_lists_existing():
     prompt = _build_concept_extraction_prompt(_make_paper(), ["Diffusion Policy"])
     assert "Diffusion Policy" in prompt

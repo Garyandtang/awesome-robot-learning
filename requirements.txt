@@ -10,3 +10,4 @@ trafilatura>=2.0
 sentence-transformers>=3.0
 peft>=0.10
 numpy>=1.24
+pymupdf>=1.24

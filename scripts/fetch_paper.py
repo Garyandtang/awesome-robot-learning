@@ -1,10 +1,15 @@
-"""Fetch paper metadata from arXiv and Semantic Scholar APIs."""
+"""Fetch paper metadata and full text from arXiv and Semantic Scholar APIs."""
 
+import io
+import logging
 import re
 import time
 
 import feedparser
 import requests
+import trafilatura
+
+logger = logging.getLogger(__name__)
 
 ARXIV_API = "http://export.arxiv.org/api/query"
 S2_API = "https://api.semanticscholar.org/graph/v1/paper"
@@ -103,6 +108,90 @@ def fetch_s2_metadata(
         "project_url": None,
         "has_code": data.get("isOpenAccess", False),
     }
+
+
+# ---------------------------------------------------------------------------
+# Full text fetching (HTML preferred, PDF fallback)
+# ---------------------------------------------------------------------------
+
+_MAX_FULLTEXT_CHARS = 80_000  # ~20K tokens, enough for Claude analysis
+
+
+def fetch_fulltext_html(arxiv_id: str, timeout: int = 30) -> str | None:
+    """Fetch full text from arXiv HTML rendering.
+
+    Returns extracted text or None if HTML version unavailable.
+    """
+    url = f"https://arxiv.org/html/{arxiv_id}v1"
+    try:
+        downloaded = trafilatura.fetch_url(url)
+        if not downloaded:
+            return None
+        text = trafilatura.extract(downloaded, include_tables=False)
+        if text and len(text) > 500:  # sanity check: real paper > 500 chars
+            return text[:_MAX_FULLTEXT_CHARS]
+        return None
+    except Exception:
+        logger.debug("HTML fetch failed for %s", arxiv_id)
+        return None
+
+
+def fetch_fulltext_pdf(arxiv_id: str, timeout: int = 60) -> str | None:
+    """Fetch full text by downloading arXiv PDF and extracting with pymupdf.
+
+    Returns extracted text or None on failure.
+    """
+    try:
+        import pymupdf
+    except ImportError:
+        logger.debug("pymupdf not installed, skipping PDF fallback")
+        return None
+
+    url = f"https://arxiv.org/pdf/{arxiv_id}"
+    try:
+        resp = requests.get(url, timeout=timeout)
+        resp.raise_for_status()
+    except Exception:
+        logger.debug("PDF download failed for %s", arxiv_id)
+        return None
+
+    try:
+        doc = pymupdf.open(stream=io.BytesIO(resp.content), filetype="pdf")
+        pages = []
+        for page in doc:
+            pages.append(page.get_text())
+        doc.close()
+        text = "\n".join(pages)
+        if len(text) > 500:
+            return text[:_MAX_FULLTEXT_CHARS]
+        return None
+    except Exception:
+        logger.debug("PDF parsing failed for %s", arxiv_id)
+        return None
+
+
+def fetch_fulltext(arxiv_id: str) -> str | None:
+    """Fetch paper full text: try HTML first, fall back to PDF.
+
+    Returns plain text content (truncated to ~80K chars) or None.
+    """
+    if not arxiv_id:
+        return None
+
+    # Strategy B: HTML first (fast, clean)
+    text = fetch_fulltext_html(arxiv_id)
+    if text:
+        logger.info("Got HTML full text for %s (%d chars)", arxiv_id, len(text))
+        return text
+
+    # Strategy A fallback: PDF (slower, noisier)
+    text = fetch_fulltext_pdf(arxiv_id)
+    if text:
+        logger.info("Got PDF full text for %s (%d chars)", arxiv_id, len(text))
+        return text
+
+    logger.info("No full text available for %s", arxiv_id)
+    return None
 
 
 def fetch_paper(url_or_id: str, api_key: str = "") -> dict | None:

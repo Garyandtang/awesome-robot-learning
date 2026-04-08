@@ -75,13 +75,23 @@ def _extract_json(raw: str) -> str:
 
 
 def _build_paper_prompt(paper: dict, existing_concepts: list[str]) -> str:
-    """Build prompt for paper page."""
+    """Build prompt for paper page.
+
+    Uses full text if available (_fulltext field), otherwise falls back to abstract.
+    """
     concepts_context = ""
     if existing_concepts:
         concepts_context = f"""
 以下是知识库中已有的研究概念，如果这篇论文与其中某些概念相关，请在分析中建立联系：
 {chr(10).join(f'- {c}' for c in existing_concepts[:30])}
 """
+    fulltext = paper.get("_fulltext", "")
+    if fulltext:
+        # Truncate to ~60K chars to leave room for prompt overhead
+        content_block = f"- 论文全文（截取）:\n\n{fulltext[:60000]}"
+    else:
+        content_block = f"- 摘要: {paper.get('abstract', '无摘要')}"
+
     return f"""你是一个机器人学习领域的研究助手。请为以下论文撰写一篇深度分析文章（中文）。
 
 ## 论文信息
@@ -89,7 +99,7 @@ def _build_paper_prompt(paper: dict, existing_concepts: list[str]) -> str:
 - 作者: {', '.join(paper.get('authors', ['未知']))}
 - 发表: {paper.get('venue', '未知')} {paper.get('date', '')}
 - 链接: {paper.get('url', '')}
-- 摘要: {paper.get('abstract', '无摘要')}
+{content_block}
 {concepts_context}
 
 ## 要求
@@ -255,10 +265,20 @@ def compile_paper_page(
 ) -> Path:
     """Have Claude write a deep analysis page for a paper.
 
+    Fetches full text (HTML → PDF fallback) before generating analysis.
     Returns path to the written .md file.
     """
     papers_dir = wiki_dir / "papers"
     papers_dir.mkdir(parents=True, exist_ok=True)
+
+    # Fetch full text if not already present
+    if "_fulltext" not in paper:
+        from scripts.fetch_paper import fetch_fulltext
+        arxiv_id = paper.get("arxiv_id", "")
+        if arxiv_id:
+            fulltext = fetch_fulltext(arxiv_id)
+            if fulltext:
+                paper = {**paper, "_fulltext": fulltext}
 
     existing_concepts = get_concept_index(wiki_dir)
     prompt = _build_paper_prompt(paper, existing_concepts)
