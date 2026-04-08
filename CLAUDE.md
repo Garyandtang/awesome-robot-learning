@@ -34,21 +34,45 @@ Optional additions:
 
 **Section choice:** Pick the section that best matches the paper's primary task.
 
+## Conda Environment
+
+This project uses a dedicated conda environment `paper-rec` for all Python dependencies (embedding models, torch, etc.).
+
+```bash
+# Activate environment
+conda activate paper-rec
+
+# Run tests (from project root)
+python3 -m pytest tests/ -v --override-ini="addopts=" -p no:cacheprovider
+
+# Run daily pipeline
+python3 -m scripts.daily_pipeline
+```
+
+Note: The `--override-ini="addopts=" -p no:cacheprovider` flags are needed to avoid conflicts with the ROS pytest plugin installed system-wide.
+
 ## Scripts
 
 - `scripts/fetch_paper.py` — Fetch paper metadata from arXiv or Semantic Scholar
 - `scripts/search_papers.py` — Search for new papers (arXiv + Semantic Scholar)
+- `scripts/daily_pipeline.py` — Daily paper recommendation pipeline orchestrator
+- `scripts/taste_engine.py` — Three-level recommendation funnel (L1 hard rules, L2 embedding, L3 LLM)
+- `scripts/embedding_store.py` — Local embedding model (jina-embeddings-v5-text-nano) and vector storage
+- `scripts/bootstrap_embeddings.py` — Cold-start: build embedding corpus from awesome-list papers
+- `scripts/wiki_compiler.py` — LLM-compiled research wiki (Karpathy method)
+- `scripts/feedback.py` — Feedback loop: update corpus, stats, and wiki after daily scoring
+- `scripts/rss_fetcher.py` — RSS/Atom feed fetcher for blog posts
+- `scripts/config.py` — Load config from `~/.config/paper-collector/config.yaml`
 - `scripts/zotero_client.py` — Write paper entries to Zotero
 - `scripts/notion_client.py` — Write paper entries to Notion database
 - `scripts/git_writer.py` — Insert paper entries into README.md
 - `scripts/generate_wordcloud.py` — Regenerate word cloud from README titles
-- `scripts/config.py` — Load config from `~/.config/paper-collector/config.yaml`
 
 ## Running Tests
 
 ```bash
-pip install -r requirements.txt
-pytest tests/ -v
+conda activate paper-rec
+python3 -m pytest tests/ -v --override-ini="addopts=" -p no:cacheprovider
 ```
 
 ## Wordcloud Generation

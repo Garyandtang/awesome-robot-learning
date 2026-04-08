@@ -24,6 +24,7 @@ from scripts.search_papers import (
     search_semantic_scholar,
 )
 from scripts.rss_fetcher import fetch_all_feeds
+from scripts.feedback import run_feedback
 from scripts.taste_engine import filter_candidates, ScoredPaper
 
 logger = logging.getLogger(__name__)
@@ -182,7 +183,13 @@ def run_daily_pipeline() -> dict:
     date_str = date.today().isoformat()
     message = format_feishu_message(scored, date_str)
 
-    # Step 4: Update seen papers
+    # Step 4: Feedback loop (corpus + stats + wiki)
+    feedback_result = run_feedback(
+        scored, corpus_dir, wiki_path=wiki_path
+    )
+    logger.info("Feedback: %s", feedback_result)
+
+    # Step 5: Update seen papers
     for paper in candidates:
         paper_id = paper.get("arxiv_id") or paper.get("url", "")
         if paper.get("source_type") == "rss":
@@ -201,4 +208,5 @@ def run_daily_pipeline() -> dict:
         "medium_count": len(medium),
         "low_count": len(low),
         "message": message,
+        "feedback": feedback_result,
     }
