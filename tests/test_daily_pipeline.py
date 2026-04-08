@@ -31,6 +31,8 @@ def test_format_feishu_message_with_high_and_medium():
     assert "Paper A" in msg
     assert "Paper B" in msg
     assert "高度相关" in msg
+    assert "作者：Alice" in msg
+    assert "https://arxiv.org/abs/2604.00001" in msg
 
 
 def test_format_feishu_message_empty():

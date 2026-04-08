@@ -104,7 +104,10 @@ def format_feishu_message(scored: list[ScoredPaper], date_str: str) -> str:
         lines.append("⭐ 高相关\n")
         for s in high:
             p = s.paper
+            authors = ", ".join(p.get("authors", []))
             lines.append(f"{p.get('title', '未知标题')}")
+            if authors:
+                lines.append(f"作者：{authors}")
             lines.append(f"方法：{s.reason}")
             lines.append(f"链接：{p.get('url', '')}")
             if p.get("project_url"):
@@ -115,7 +118,11 @@ def format_feishu_message(scored: list[ScoredPaper], date_str: str) -> str:
         lines.append("📎 可能感兴趣\n")
         for s in medium:
             p = s.paper
-            lines.append(f"{p.get('title', '未知标题')} — {s.reason}")
+            authors = ", ".join(p.get("authors", []))
+            lines.append(f"{p.get('title', '未知标题')}")
+            if authors:
+                lines.append(f"作者：{authors}")
+            lines.append(f"方法：{s.reason}")
             lines.append(f"链接：{p.get('url', '')}")
             lines.append("")
 
