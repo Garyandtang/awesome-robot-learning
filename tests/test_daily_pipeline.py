@@ -85,6 +85,41 @@ def test_format_feishu_message_medium_section_header():
     assert "可能感兴趣" in msg
 
 
+def test_format_feishu_message_includes_wiki_analysis(tmp_path):
+    # Create a wiki analysis page
+    papers_dir = tmp_path / "papers"
+    papers_dir.mkdir(parents=True)
+    (papers_dir / "2604.00001.md").write_text(
+        "---\ntitle: Paper H\n---\n\n### 核心方法\n这是一篇关于扩散策略的深度分析。",
+        encoding="utf-8",
+    )
+    paper = {
+        "title": "Paper H",
+        "url": "https://arxiv.org/abs/2604.00001",
+        "authors": ["Alice"],
+        "arxiv_id": "2604.00001",
+    }
+    scored = [
+        ScoredPaper(
+            paper=paper,
+            relevance="High",
+            reason="测试理由",
+            embedding_score=0.9,
+            source_level="llm",
+        )
+    ]
+    msg = format_feishu_message(scored, "2026-04-08", wiki_path=tmp_path)
+    assert "深度解读" in msg
+    assert "核心方法" in msg
+    assert "扩散策略" in msg
+
+
+def test_format_feishu_message_no_wiki_for_medium():
+    scored = [_make_scored("Paper I", "Medium")]
+    msg = format_feishu_message(scored, "2026-04-08")
+    assert "深度解读" not in msg
+
+
 @patch("scripts.daily_pipeline.fetch_all_feeds", return_value=[])
 @patch("scripts.daily_pipeline.search_semantic_scholar", return_value=[])
 @patch("scripts.daily_pipeline.search_arxiv")

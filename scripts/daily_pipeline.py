@@ -70,23 +70,28 @@ def collect_candidates(config: dict, seen: dict) -> list[dict]:
     return deduplicate(all_papers, seen)
 
 
-def format_feishu_message(scored: list[ScoredPaper], date_str: str) -> str:
+def _load_wiki_analysis(arxiv_id: str, wiki_path: Path | None) -> str | None:
+    """Load the wiki analysis content for a paper, stripping YAML frontmatter."""
+    if not wiki_path or not arxiv_id:
+        return None
+    paper_page = wiki_path / "papers" / f"{arxiv_id}.md"
+    if not paper_page.exists():
+        return None
+    content = paper_page.read_text(encoding="utf-8")
+    # Strip YAML frontmatter (--- ... ---)
+    import re
+    content = re.sub(r"^---.*?---\s*", "", content, flags=re.DOTALL).strip()
+    return content if content else None
+
+
+def format_feishu_message(
+    scored: list[ScoredPaper],
+    date_str: str,
+    wiki_path: Path | None = None,
+) -> str:
     """Format scored papers into the Feishu message template (Chinese).
 
-    Format:
-    📬 今日论文推荐（YYYY-MM-DD）
-
-    ⭐ 高相关
-
-    Paper Title
-    方法：reason from ScoredPaper
-    链接：url
-    项目：project_url（如有）
-
-    📎 可能感兴趣
-
-    Paper Title — reason
-    链接：url
+    For High papers, includes Claude's wiki analysis if available.
 
     If no papers: '📬 今日无新相关论文。'
     """
@@ -113,6 +118,12 @@ def format_feishu_message(scored: list[ScoredPaper], date_str: str) -> str:
             lines.append(f"链接：{p.get('url', '')}")
             if p.get("project_url"):
                 lines.append(f"项目：{p['project_url']}")
+            # Append wiki analysis for High papers
+            analysis = _load_wiki_analysis(p.get("arxiv_id", ""), wiki_path)
+            if analysis:
+                lines.append("")
+                lines.append("📖 深度解读：")
+                lines.append(analysis)
             lines.append("")
 
     if medium:
@@ -179,15 +190,16 @@ def run_daily_pipeline() -> dict:
         candidates, taste_profile, corpus_dir, wiki_path=wiki_path
     )
 
-    # Step 3: Format message
-    date_str = date.today().isoformat()
-    message = format_feishu_message(scored, date_str)
-
-    # Step 4: Feedback loop (corpus + stats + wiki)
+    # Step 3: Feedback loop (corpus + stats + wiki) — runs BEFORE message
+    # so that wiki analysis pages exist when formatting the message
     feedback_result = run_feedback(
         scored, corpus_dir, wiki_path=wiki_path
     )
     logger.info("Feedback: %s", feedback_result)
+
+    # Step 4: Format message (includes wiki analysis for High papers)
+    date_str = date.today().isoformat()
+    message = format_feishu_message(scored, date_str, wiki_path=wiki_path)
 
     # Step 5: Update seen papers
     for paper in candidates:
