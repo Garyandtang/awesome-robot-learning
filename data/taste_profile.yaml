@@ -29,3 +29,35 @@ stats:
   - category: Sim-to-Real
     count: 13
   last_updated: '2026-04-07'
+
+hard_rules:
+  positive_keywords:
+    - "humanoid"
+    - "locomotion"
+    - "manipulation"
+    - "whole-body"
+    - "sim-to-real"
+    - "reinforcement learning"
+    - "imitation learning"
+    - "diffusion policy"
+    - "vision language action"
+    - "VLA"
+    - "teleoperation"
+    - "dexterous"
+    - "legged robot"
+  negative_keywords:
+    - "medical imaging"
+    - "drug discovery"
+    - "protein folding"
+    - "autonomous driving"
+    - "natural language processing"
+  author_boost:
+    - "Pieter Abbeel"
+    - "Sergey Levine"
+    - "Chelsea Finn"
+
+embedding:
+  model_name: "jinaai/jina-embeddings-v5-text-nano"
+  dim: 768
+  top_k: 30
+  corpus_min_for_ranking: 10
