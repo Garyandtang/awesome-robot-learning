@@ -14,46 +14,56 @@ logger = logging.getLogger(__name__)
 def enrich_with_abstracts(
     papers: list[dict],
     batch_size: int = 10,
-    delay: float = 3.0,
+    delay: float = 1.0,
+    max_retries: int = 3,
 ) -> list[dict]:
     """Fetch abstracts from arXiv for papers that have arxiv_ids.
 
-    Rate-limited to avoid API throttling. Returns new list (immutable).
-    For papers without arxiv_id or where fetch fails, keep them with empty abstract.
+    Rate-limited: sleeps `delay` seconds between each request, with
+    exponential backoff on 429 errors. Returns new list (immutable).
+    For papers without arxiv_id or where fetch fails, keep with empty abstract.
     """
     enriched: list[dict] = []
+    fetched = 0
 
-    for batch_start in range(0, len(papers), batch_size):
-        batch = papers[batch_start : batch_start + batch_size]
+    for i, paper in enumerate(papers):
+        arxiv_id = paper.get("arxiv_id")
+        if not arxiv_id:
+            enriched.append({**paper})
+            continue
 
-        for paper in batch:
-            arxiv_id = paper.get("arxiv_id")
-            if not arxiv_id:
-                enriched.append({**paper})
-                continue
-
+        abstract = ""
+        for attempt in range(max_retries):
             try:
                 metadata = fetch_arxiv_metadata(arxiv_id)
                 abstract = (metadata or {}).get("abstract", "")
-                enriched.append({**paper, "abstract": abstract})
-            except Exception:
-                logger.warning(
-                    "Failed to fetch abstract for %s, skipping",
-                    arxiv_id,
-                    exc_info=True,
-                )
-                enriched.append({**paper})
+                break
+            except Exception as exc:
+                is_429 = "429" in str(exc)
+                if is_429 and attempt < max_retries - 1:
+                    backoff = delay * (2 ** (attempt + 1))
+                    logger.info(
+                        "Rate limited on %s, retrying in %.0fs (%d/%d)",
+                        arxiv_id, backoff, attempt + 1, max_retries,
+                    )
+                    time.sleep(backoff)
+                else:
+                    logger.warning("Failed to fetch abstract for %s, skipping", arxiv_id)
+                    break
 
-        # Rate-limit between batches (skip delay after the last batch)
-        if delay > 0 and batch_start + batch_size < len(papers):
-            logger.debug("Sleeping %.1fs between batches", delay)
+        enriched.append({**paper, "abstract": abstract} if abstract else {**paper})
+        fetched += 1
+
+        # Per-request delay to avoid hitting arXiv rate limit
+        if delay > 0 and i < len(papers) - 1:
             time.sleep(delay)
 
-    logger.info(
-        "Enriched %d/%d papers with abstracts",
-        sum(1 for p in enriched if p.get("abstract")),
-        len(enriched),
-    )
+        # Progress log every batch_size papers
+        if fetched % batch_size == 0:
+            logger.info("Progress: %d/%d papers processed", i + 1, len(papers))
+
+    with_abstracts = sum(1 for p in enriched if p.get("abstract"))
+    logger.info("Enriched %d/%d papers with abstracts", with_abstracts, len(enriched))
     return enriched
 
 
