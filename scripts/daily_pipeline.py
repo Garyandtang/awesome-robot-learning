@@ -55,11 +55,14 @@ def collect_candidates(config: dict, seen: dict) -> list[dict]:
         s2q = build_s2_query(kws)
         fields = topic.get("semantic_scholar_fields")
         s2_key = config.get("semantic_scholar", {}).get("api_key", "")
-        all_papers.extend(
-            search_semantic_scholar(
-                s2q, fields, 30, str(datetime.now().year), s2_key
+        try:
+            all_papers.extend(
+                search_semantic_scholar(
+                    s2q, fields, 30, str(datetime.now().year), s2_key
+                )
             )
-        )
+        except Exception:
+            logger.warning("Semantic Scholar search failed for topic %s, skipping", kws)
 
     # RSS feeds
     feeds = load_feeds()
@@ -193,7 +196,7 @@ def run_daily_pipeline() -> dict:
     # Step 3: Feedback loop (corpus + stats + wiki) — runs BEFORE message
     # so that wiki analysis pages exist when formatting the message
     feedback_result = run_feedback(
-        scored, corpus_dir, wiki_path=wiki_path
+        scored, corpus_dir, wiki_dir=wiki_path
     )
     logger.info("Feedback: %s", feedback_result)
 

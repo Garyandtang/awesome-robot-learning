@@ -6,7 +6,13 @@ cd /home/gary/Documents/awesome-robot-learning
 
 export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:/usr/local/bin:$PATH"
 
+# Activate conda environment
+eval "$(conda shell.bash hook)"
+conda activate paper-rec
+
 LOG_FILE="/home/gary/Documents/awesome-robot-learning/logs/daily_search_$(date +%Y%m%d).log"
+
+echo "$(date): Starting pipeline (python: $(which python3))" >> "$LOG_FILE"
 
 # Step 1: Run the taste engine pipeline (search + filter + score)
 PIPELINE_OUTPUT=$(timeout 25m python3 -c "
