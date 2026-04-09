@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>论文推荐系统 — 全架构图</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg: #fafbfe;
+    --surface: #ffffff;
+    --surface2: #f0f4ff;
+    --border: #e0e6f0;
+    --text: #1a1a2e;
+    --text-dim: #6b7394;
+    --blue: #4f6ef7;
+    --purple: #8b5cf6;
+    --green: #22c55e;
+    --emerald: #10b981;
+    --amber: #f59e0b;
+    --rose: #f43f5e;
+    --cyan: #06b6d4;
+    --orange: #f97316;
+    --pink: #ec4899;
+    --indigo: #6366f1;
+    --teal: #14b8a6;
+    --sky: #0ea5e9;
+    --lime: #84cc16;
+    --shadow: 0 2px 12px rgba(79, 110, 247, 0.08);
+    --shadow-hover: 0 8px 24px rgba(79, 110, 247, 0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans SC', -apple-system, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* === HEADER === */
+  .header {
+    text-align: center;
+    padding: 3rem 2rem 2rem;
+    background: linear-gradient(135deg, #4f6ef7 0%, #8b5cf6 50%, #ec4899 100%);
+    color: white;
+    position: relative;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -30px; left: 0; right: 0;
+    height: 60px;
+    background: var(--bg);
+    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  }
+  .header h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+    letter-spacing: -0.02em;
+  }
+  .header p {
+    opacity: 0.85;
+    font-size: 1rem;
+  }
+  .header .version-tag {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(8px);
+    padding: 0.25rem 0.8rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+    letter-spacing: 0.02em;
+  }
+
+  /* === STATS === */
+  .stats-bar {
+    display: flex;
+    justify-content: center;
+    gap: 1.2rem;
+    padding: 0 2rem;
+    margin-top: -10px;
+    position: relative;
+    z-index: 2;
+    flex-wrap: wrap;
+  }
+  .stat-chip {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 1rem 1.8rem;
+    text-align: center;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .stat-label {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-top: 0.1rem;
+  }
+
+  /* === CANVAS === */
+  .canvas {
+    max-width: 1200px;
+    margin: 2rem auto 0;
+    padding: 0 2rem 4rem;
+  }
+
+  /* === PHASE === */
+  .phase { margin-bottom: 2rem; }
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+  .phase-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+  }
+  .phase-title {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .phase-sub {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-left: 0.3rem;
+  }
+
+  /* === CARDS === */
+  .flow-row {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.2rem;
+    flex: 1;
+    min-width: 200px;
+    position: relative;
+    box-shadow: var(--shadow);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+  }
+  .card-accent {
+    position: absolute;
+    top: 0; left: 1.2rem; right: 1.2rem;
+    height: 3px;
+    border-radius: 0 0 4px 4px;
+  }
+  .card-icon { font-size: 1.6rem; margin-bottom: 0.4rem; }
+  .card-title { font-size: 0.92rem; font-weight: 600; margin-bottom: 0.3rem; }
+  .card-desc { font-size: 0.78rem; color: var(--text-dim); line-height: 1.55; }
+  .card-file {
+    font-size: 0.68rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    margin-top: 0.5rem;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--surface2);
+    display: inline-block;
+  }
+  .card-phase {
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 0.3rem;
+    vertical-align: middle;
+  }
+  .phase-1-tag { background: #dcfce7; color: #16a34a; }
+  .phase-2-tag { background: #dbeafe; color: #2563eb; }
+
+  /* === BADGES === */
+  .badge {
+    display: inline-block;
+    font-size: 0.62rem;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-weight: 600;
+    position: absolute;
+    top: 0.7rem;
+    right: 0.7rem;
+  }
+  .badge-live { background: #dcfce7; color: #16a34a; }
+  .badge-ready { background: #dbeafe; color: #2563eb; }
+  .badge-manual { background: #fef3c7; color: #d97706; }
+  .badge-pending { background: #fce7f3; color: #db2777; }
+
+  /* === CONNECTOR === */
+  .connector {
+    display: flex;
+    justify-content: center;
+    padding: 0.4rem 0;
+  }
+  .connector-arrow {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 8px rgba(79, 110, 247, 0.3);
+  }
+  .connector-label {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0;
+  }
+  .connector-text {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+
+  /* === FUNNEL === */
+  .funnel {
+    background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 50%, #fff1f2 100%);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+  }
+  .funnel-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .funnel-tag {
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    background: white;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .funnel-levels {
+    display: flex;
+    gap: 0.6rem;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .level {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    flex: 1;
+    min-width: 190px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .level::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .level-1::before { background: linear-gradient(90deg, var(--green), var(--emerald)); }
+  .level-2::before { background: linear-gradient(90deg, var(--sky), var(--cyan)); }
+  .level-3::before { background: linear-gradient(90deg, var(--orange), var(--rose)); }
+  .level-num {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.3rem;
+  }
+  .level-1 .level-num { color: var(--green); }
+  .level-2 .level-num { color: var(--cyan); }
+  .level-3 .level-num { color: var(--orange); }
+  .level-name { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.4rem; }
+  .level-detail { font-size: 0.75rem; color: var(--text-dim); line-height: 1.5; }
+  .level-cost {
+    font-size: 0.65rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+    padding: 3px 10px;
+    border-radius: 99px;
+    display: inline-block;
+  }
+  .cost-free { background: #dcfce7; color: #16a34a; }
+  .cost-local { background: #cffafe; color: #0891b2; }
+  .cost-api { background: #ffedd5; color: #ea580c; }
+
+  .arrow-between {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    color: var(--blue);
+    flex-shrink: 0;
+    font-weight: 700;
+  }
+
+  /* === DATA LAYER === */
+  .data-layer {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1rem 1.2rem;
+    margin-top: 0.8rem;
+    box-shadow: var(--shadow);
+  }
+  .data-layer-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 0.6rem;
+  }
+  .data-items { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .data-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.73rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .data-item code {
+    color: var(--blue);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 500;
+  }
+
+  /* === OUTPUT GRID === */
+  .output-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 0.7rem;
+  }
+  .output-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.1rem;
+    text-align: center;
+    box-shadow: var(--shadow);
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .output-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+  }
+  .output-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .out-feishu::before { background: linear-gradient(90deg, #3b82f6, #06b6d4); }
+  .out-readme::before { background: linear-gradient(90deg, #22c55e, #84cc16); }
+  .out-zotero::before { background: linear-gradient(90deg, #f43f5e, #f97316); }
+  .out-notion::before { background: linear-gradient(90deg, #8b5cf6, #ec4899); }
+  .out-cloud::before { background: linear-gradient(90deg, #f59e0b, #f97316); }
+  .output-icon { font-size: 2rem; margin-bottom: 0.3rem; }
+  .output-name { font-size: 0.88rem; font-weight: 600; }
+  .output-detail { font-size: 0.7rem; color: var(--text-dim); margin-top: 0.2rem; line-height: 1.4; }
+
+  /* === FEEDBACK === */
+  .feedback-section { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+  .feedback-card {
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: 14px;
+    padding: 1.2rem;
+    flex: 1;
+    min-width: 220px;
+    position: relative;
+    transition: border-color 0.2s, border-style 0.2s;
+  }
+  .feedback-card:hover {
+    border-color: var(--purple);
+    border-style: solid;
+    box-shadow: var(--shadow-hover);
+  }
+
+  /* === WIKI STRUCTURE === */
+  .wiki-tree {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.2rem;
+    margin-top: 0.8rem;
+    box-shadow: var(--shadow);
+  }
+  .wiki-tree-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .wiki-dir {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    line-height: 1.8;
+    color: var(--text-dim);
+    padding-left: 0.5rem;
+  }
+  .wiki-dir .dir { color: var(--blue); font-weight: 600; }
+  .wiki-dir .file { color: var(--text-dim); }
+  .wiki-dir .count { color: var(--purple); font-weight: 500; }
+
+  /* === LOOP DIAGRAM === */
+  .loop-container {
+    background: linear-gradient(135deg, #fef3c7 0%, #fce7f3 50%, #dbeafe 100%);
+    border: 2px solid var(--border);
+    border-radius: 18px;
+    padding: 1.5rem;
+    margin-top: 0.8rem;
+    position: relative;
+  }
+  .loop-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+  .loop-steps {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .loop-step {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.75rem;
+    text-align: center;
+    min-width: 100px;
+    box-shadow: var(--shadow);
+  }
+  .loop-step strong { display: block; font-size: 0.8rem; margin-bottom: 0.2rem; }
+  .loop-arrow {
+    font-size: 1.1rem;
+    color: var(--purple);
+    font-weight: 700;
+  }
+  .loop-return {
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--rose);
+    font-weight: 600;
+    margin-top: 0.8rem;
+    padding-top: 0.6rem;
+    border-top: 1px dashed var(--border);
+  }
+
+  /* === SECTION LABEL === */
+  .section-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    margin: 2.5rem 0 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  /* === LEGEND === */
+  .legend {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+
+  /* === TECH PILLS === */
+  .tech-grid {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 0.5rem;
+  }
+  .tech-pill {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 0.4rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  /* === PIPELINE ORDER === */
+  .pipeline-order {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.2rem;
+    margin-top: 0.8rem;
+    box-shadow: var(--shadow);
+  }
+  .pipeline-order-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 0.8rem;
+  }
+  .pipeline-steps {
+    display: flex;
+    gap: 0.3rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .pipeline-step {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .pipeline-sep { color: var(--blue); font-weight: 700; font-size: 0.85rem; }
+
+  @media (max-width: 768px) {
+    .header h1 { font-size: 1.5rem; }
+    .stats-bar { gap: 0.5rem; }
+    .stat-chip { padding: 0.7rem 1rem; }
+    .funnel-levels { flex-direction: column; }
+    .arrow-between { transform: rotate(90deg); }
+    .flow-row { flex-direction: column; }
+    .loop-steps { flex-direction: column; }
+    .loop-arrow { transform: rotate(90deg); }
+    .pipeline-steps { flex-direction: column; align-items: flex-start; }
+    .pipeline-sep { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>论文推荐系统</h1>
+  <p>awesome-robot-learning · Source → Taste → Present → Wiki</p>
+  <div class="version-tag">Phase 1 已上线 · Phase 2 开发完成 · 2026-04-08</div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat-chip"><div class="stat-value">510</div><div class="stat-label">语料库论文</div></div>
+  <div class="stat-chip"><div class="stat-value">768d</div><div class="stat-label">向量维度</div></div>
+  <div class="stat-chip"><div class="stat-value">3 级</div><div class="stat-label">推荐漏斗</div></div>
+  <div class="stat-chip"><div class="stat-value">6</div><div class="stat-label">输出通道</div></div>
+  <div class="stat-chip"><div class="stat-value">135</div><div class="stat-label">自动化测试</div></div>
+</div>
+
+<div class="canvas">
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> 已上线（每日 cron）</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div> 开发完成（待激活）</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div> 手动触发</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--pink)"></div> 待开发</div>
+  </div>
+
+  <!-- ===== 1. 数据源 ===== -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-num" style="background:linear-gradient(135deg, var(--blue), var(--sky))">1</div>
+      <div class="phase-title">数据源层 <span class="card-phase phase-1-tag">P1</span><span class="phase-sub">· 论文采集 + 全文获取</span></div>
+    </div>
+    <div class="flow-row">
+      <div class="card">
+        <div class="card-accent" style="background:linear-gradient(90deg, #4f6ef7, #06b6d4)"></div>
+        <span class="badge badge-live">已上线</span>
+        <div class="card-icon">📡</div>
+        <div class="card-title">arXiv API</div>
+        <div class="card-desc">广域搜索 cs.RO + cs.AI（100 篇）+ 按主题定向查询（每主题 50 篇），回溯 2 天。</div>
+        <div class="card-file">search_papers.py</div>
+      </div>
+      <div class="card">
+        <div class="card-accent" style="background:linear-gradient(90deg, #8b5cf6, #ec4899)"></div>
+        <span class="badge badge-live">已上线</span>
+        <div class="card-icon">🔬</div>
+        <div class="card-title">Semantic Scholar</div>
+        <div class="card-desc">按研究领域过滤，每主题 30 篇。提供引用数、开放获取、期刊等丰富元数据。</div>
+        <div class="card-file">search_papers.py</div>
+      </div>
+      <div class="card">
+        <div class="card-accent" style="background:linear-gradient(90deg, #f97316, #f59e0b)"></div>
+        <span class="badge badge-live">已上线</span>
+        <div class="card-icon">📰</div>
+        <div class="card-title">RSS 订阅源</div>
+        <div class="card-desc">实验室博客、个人网站、会议 Feed。回溯 7 天，统一格式输出。</div>
+        <div class="card-file">rss_fetcher.py</div>
+      </div>
+      <div class="card">
+        <div class="card-accent" style="background:linear-gradient(90deg, #14b8a6, #22c55e)"></div>
+        <span class="badge badge-ready">已开发</span>
+        <div class="card-icon">📄</div>
+        <div class="card-title">全文获取 <span class="card-phase phase-2-tag">P2</span></div>
+        <div class="card-desc">HTML 优先（trafilatura）+ PDF 兜底（pymupdf）。截断至 80K 字符，供 Wiki 编译使用。</div>
+        <div class="card-file">fetch_paper.py</div>
+      </div>
+      <div class="card">
+        <div class="card-accent" style="background:linear-gradient(90deg, var(--teal), var(--emerald))"></div>
+        <span class="badge badge-ready">已开发</span>
+        <div class="card-icon">🔍</div>
+        <div class="card-title">源发现</div>
+        <div class="card-desc">每月执行：从语料库提取高产作者 → 搜索主页 → 生成 RSS 候选列表。</div>
+        <div class="card-file">source_discovery.py</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-arrow">↓</div></div>
+
+  <!-- ===== 2. 去重 ===== -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-num" style="background:linear-gradient(135deg, var(--cyan), var(--teal))">2</div>
+      <div class="phase-title">去重过滤 <span class="card-phase phase-1-tag">P1</span><span class="phase-sub">· 避免重复推荐</span></div>
+    </div>
+    <div class="flow-row">
+      <div class="card" style="max-width:500px;">
+        <div class="card-accent" style="background:linear-gradient(90deg, var(--cyan), var(--teal))"></div>
+        <span class="badge badge-live">已上线</span>
+        <div class="card-icon">🧹</div>
+        <div class="card-title">已读论文过滤</div>
+        <div class="card-desc">根据 arxiv_id 或 rss:url 查询 seen_papers.json，跳过已处理论文。每次运行后自动追加更新。</div>
+        <div class="card-file">data/seen_papers.json · 101 条记录</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-arrow">↓</div></div>
+
+  <!-- ===== 3. 品味引擎 ===== -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-num" style="background:linear-gradient(135deg, var(--purple), var(--pink))">3</div>
+      <div class="phase-title">品味引擎 <span class="card-phase phase-2-tag">P2</span><span class="phase-sub">· 三级推荐漏斗</span></div>
+    </div>
+    <div class="funnel">
+      <div class="funnel-title">
+        🎯 filter_candidates()
+        <span class="funnel-tag">taste_engine.py</span>
+        <span class="funnel-tag" style="background:#dcfce7; color:#16a34a;">开发完成 2026-04-08</span>
+      </div>
+      <div class="funnel-levels">
+        <div class="level level-1">
+          <div class="level-num">LEVEL 1</div>
+          <div class="level-name">硬规则过滤</div>
+          <div class="level-detail">
+            13 个正向关键词<br>
+            5 个负向关键词<br>
+            3 位白名单作者<br>
+            负向规则优先<br>
+            ~200 → ~80-120
+          </div>
+          <div class="level-cost cost-free">零成本</div>
+        </div>
+        <div class="arrow-between">→</div>
+        <div class="level level-2">
+          <div class="level-num">LEVEL 2</div>
+          <div class="level-name">语义排序</div>
+          <div class="level-detail">
+            jina-embeddings-v5-text-nano<br>
+            33M 参数 · 768 维 · CPU<br>
+            <strong>日期衰减</strong>加权余弦相似度<br>
+            半衰期 24 月 · exp(-λ·age)<br>
+            取 Top-K = 30
+          </div>
+          <div class="level-cost cost-local">本地计算</div>
+        </div>
+        <div class="arrow-between">→</div>
+        <div class="level level-3">
+          <div class="level-num">LEVEL 3</div>
+          <div class="level-name">LLM 品味评分</div>
+          <div class="level-detail">
+            Claude CLI (--print)<br>
+            中文 Prompt + 品味画像<br>
+            <strong>Wiki 概念</strong>作为上下文<br>
+            输出：High / Medium / Low<br>
+            + 中文推荐理由
+          </div>
+          <div class="level-cost cost-api">API 调用（仅 Top 30）</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="data-layer">
+      <div class="data-layer-title">📊 支撑数据</div>
+      <div class="data-items">
+        <div class="data-item">📋 <code>taste_profile.yaml</code> 关键词 · 作者 · 偏好</div>
+        <div class="data-item">🧮 <code>corpus_embeddings.npy</code> 510 × 768 向量 (1.5MB)</div>
+        <div class="data-item">📑 <code>corpus_metadata.json</code> 论文元数据 (732KB)</div>
+        <div class="data-item">💾 <code>abstract_cache.json</code> 摘要缓存 (545KB)</div>
+        <div class="data-item">📖 <code>wiki/concepts/</code> 概念索引 → L3 Prompt</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector">
+    <div class="connector-label">
+      <div class="connector-arrow">↓</div>
+      <div class="connector-text">High 论文先经过反馈闭环（生成 Wiki 分析），再格式化消息</div>
+    </div>
+  </div>
+
+  <!-- ===== 4. 反馈 & Wiki ===== -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-num" style="background:linear-gradient(135deg, var(--rose), var(--orange))">4</div>
+      <div class="phase-title">反馈闭环 & Karpathy 知识库 <span class="card-phase phase-2-tag">P2</span><span class="phase-sub">· 持续学习</span></div>
+    </div>
+    <div class="feedback-section">
+      <div class="feedback-card">
+        <span class="badge badge-ready">已开发</span>
+        <div class="card-icon">🔄</div>
+        <div class="card-title">反馈闭环</div>
+        <div class="card-desc">
+          评分完成后自动触发（消息格式化前）：<br><br>
+          1. <strong>语料库更新</strong> — High 论文向量追加到 .npy<br>
+          2. <strong>品味统计</strong> — 90 天滚动 H/M/L 计数<br>
+          3. <strong>Wiki 编译</strong> — Claude 读全文，写深度分析<br><br>
+          <strong>语料库随使用增长 → L2 持续优化</strong>
+        </div>
+        <div class="card-file">feedback.py</div>
+      </div>
+      <div class="feedback-card">
+        <span class="badge badge-ready">已开发</span>
+        <div class="card-icon">📖</div>
+        <div class="card-title">Karpathy 研究知识库</div>
+        <div class="card-desc">
+          <strong>Raw → LLM 编译 → Wiki → Q&A → 回填</strong><br><br>
+          1. <strong>论文深度分析</strong> — 基于全文（非摘要）<br>
+          2. <strong>概念自动提取</strong> — Claude 识别核心概念<br>
+          3. <strong>概念综述页</strong> — 增量更新，交叉引用<br>
+          4. <strong>Obsidian 双向链接</strong> — [[wikilinks]] 格式<br>
+          5. <strong>概念密度 → L3</strong> — 回馈到品味评分<br><br>
+          <strong>知识以复合利率增长。</strong>
+        </div>
+        <div class="card-file">wiki_compiler.py</div>
+      </div>
+      <div class="feedback-card">
+        <span class="badge badge-ready">已开发</span>
+        <div class="card-icon">💡</div>
+        <div class="card-title">研究对话 & Ideas</div>
+        <div class="card-desc">
+          <strong>/research</strong> 技能（Claude Code）：<br><br>
+          1. 搜索 Wiki 已有知识<br>
+          2. 联网搜索 arXiv + S2<br>
+          3. 与用户讨论方向<br>
+          4. 回写 <code>ideas/</code> 目录<br>
+          5. 更新/创建概念页<br><br>
+          <strong>对话即知识积累。</strong>
+        </div>
+        <div class="card-file">/research skill</div>
+      </div>
+    </div>
+
+    <!-- Wiki Directory Structure -->
+    <div class="wiki-tree">
+      <div class="wiki-tree-title">🗂️ Wiki 知识库结构 <span style="font-size:0.7rem;color:var(--text-dim)">· Obsidian Vault</span></div>
+      <div class="wiki-dir">
+        <span class="dir">data/wiki/</span><br>
+        ├── <span class="dir">papers/</span> <span class="count">(1 篇深度分析)</span> — Claude 基于全文撰写的中文分析<br>
+        ├── <span class="dir">concepts/</span> <span class="count">(1 个概念页)</span> — 跨论文综述，增量更新<br>
+        ├── <span class="dir">ideas/</span> <span class="count">(0 个想法)</span> — /research 对话记录<br>
+        └── <span class="dir">.obsidian/</span> — Vault 配置
+      </div>
+    </div>
+
+    <!-- Karpathy Loop Diagram -->
+    <div class="loop-container">
+      <div class="loop-title">🔁 Karpathy 知识复合循环</div>
+      <div class="loop-steps">
+        <div class="loop-step"><strong>Raw</strong>论文全文<br>(HTML/PDF)</div>
+        <div class="loop-arrow">→</div>
+        <div class="loop-step"><strong>LLM 编译</strong>Claude 分析<br>提取概念</div>
+        <div class="loop-arrow">→</div>
+        <div class="loop-step"><strong>Wiki</strong>papers/ +<br>concepts/</div>
+        <div class="loop-arrow">→</div>
+        <div class="loop-step"><strong>Q&A</strong>/research<br>对话探索</div>
+        <div class="loop-arrow">→</div>
+        <div class="loop-step"><strong>回填</strong>ideas/ +<br>概念更新</div>
+      </div>
+      <div class="loop-return">↩ 概念密度 + 品味信号 回馈到品味引擎 L3 评分 + 新论文触发新一轮编译</div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-arrow">↓</div></div>
+
+  <!-- ===== 5. 输出层 ===== -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-num" style="background:linear-gradient(135deg, var(--green), var(--lime))">5</div>
+      <div class="phase-title">输出层<span class="phase-sub">· 多通道推送</span></div>
+    </div>
+    <div class="output-grid">
+      <div class="output-card out-feishu">
+        <span class="badge badge-live">已上线</span>
+        <div class="output-icon">💬</div>
+        <div class="output-name">飞书推送</div>
+        <div class="output-detail">
+          每日中文推荐卡片<br>
+          ⭐ High: 含 📖 深度解读<br>
+          📎 Medium: 一句话摘要<br>
+          <span style="font-size:0.62rem; color:var(--purple)">P2: 附 Wiki 分析</span>
+        </div>
+      </div>
+      <div class="output-card out-readme">
+        <span class="badge badge-live">已上线</span>
+        <div class="output-icon">📝</div>
+        <div class="output-name">README.md</div>
+        <div class="output-detail">Awesome List 自动写入<br>按日期降序排列</div>
+      </div>
+      <div class="output-card out-zotero">
+        <span class="badge badge-live">已上线</span>
+        <div class="output-icon">📚</div>
+        <div class="output-name">Zotero</div>
+        <div class="output-detail">文献管理器<br>按分类收集</div>
+      </div>
+      <div class="output-card out-notion">
+        <span class="badge badge-live">已上线</span>
+        <div class="output-icon">📓</div>
+        <div class="output-name">Notion</div>
+        <div class="output-detail">数据库 + 中文方法摘要<br>详细记录每篇论文</div>
+      </div>
+      <div class="output-card" style="overflow:hidden; position:relative;">
+        <span class="badge badge-ready">已开发</span>
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg, #8b5cf6, #14b8a6)"></div>
+        <div class="output-icon">📖</div>
+        <div class="output-name">Obsidian Wiki</div>
+        <div class="output-detail">
+          知识库可视化<br>
+          双向链接 · 概念图谱<br>
+          <span style="font-size:0.62rem; color:var(--purple)">P2 新增</span>
+        </div>
+      </div>
+      <div class="output-card out-cloud">
+        <span class="badge badge-ready">已开发</span>
+        <div class="output-icon">🖼️</div>
+        <div class="output-name">词云图</div>
+        <div class="output-detail">标题可视化<br>generate_wordcloud.py</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 手动触发层 ===== -->
+  <div class="section-label">交互式触发（Claude Code Skills）</div>
+
+  <div class="flow-row">
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg, var(--amber), var(--orange))"></div>
+      <span class="badge badge-manual">手动</span>
+      <div class="card-icon">📌</div>
+      <div class="card-title">/collect-paper</div>
+      <div class="card-desc">对话中发现好论文 → 一键收集至 Zotero + Notion + Git → 触发反馈闭环（语料库 + Wiki 编译）。</div>
+      <div class="card-file">~/.claude/skills/collect-paper/</div>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg, var(--purple), var(--pink))"></div>
+      <span class="badge badge-ready">已开发</span>
+      <div class="card-icon">🧪</div>
+      <div class="card-title">/research <span class="card-phase phase-2-tag">P2</span></div>
+      <div class="card-desc">探索研究想法：搜索 Wiki 上下文 → 联网检索最新论文 → 与用户讨论 → 回写 ideas/ + 概念更新。</div>
+      <div class="card-file">~/.claude/skills/research/</div>
+    </div>
+  </div>
+
+  <!-- ===== Pipeline 执行顺序 ===== -->
+  <div class="section-label">每日管线执行顺序（daily_pipeline.py）</div>
+
+  <div class="pipeline-order">
+    <div class="pipeline-order-title">🔧 run_daily_pipeline() 执行流程</div>
+    <div class="pipeline-steps">
+      <div class="pipeline-step">📡 采集候选</div>
+      <div class="pipeline-sep">→</div>
+      <div class="pipeline-step">🧹 去重</div>
+      <div class="pipeline-sep">→</div>
+      <div class="pipeline-step" style="background:#dcfce7">🎯 L1 硬规则</div>
+      <div class="pipeline-sep">→</div>
+      <div class="pipeline-step" style="background:#cffafe">🧮 L2 嵌入排序</div>
+      <div class="pipeline-sep">→</div>
+      <div class="pipeline-step" style="background:#ffedd5">🤖 L3 LLM 评分</div>
+      <div class="pipeline-sep">→</div>
+      <div class="pipeline-step" style="background:#fce7f3">🔄 反馈闭环</div>
+      <div class="pipeline-sep">→</div>
+      <div class="pipeline-step" style="background:#fce7f3">📖 Wiki 编译</div>
+      <div class="pipeline-sep">→</div>
+      <div class="pipeline-step" style="background:#dbeafe">💬 格式化消息</div>
+      <div class="pipeline-sep">→</div>
+      <div class="pipeline-step">💾 更新 seen</div>
+    </div>
+    <div style="font-size:0.68rem; color:var(--text-dim); margin-top:0.6rem; text-align:center;">
+      反馈 & Wiki 在消息格式化之前运行 → High 论文的深度解读可以包含在飞书推送中
+    </div>
+  </div>
+
+  <!-- ===== 调度 ===== -->
+  <div class="section-label">调度与编排</div>
+
+  <div class="flow-row">
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg, var(--green), var(--emerald))"></div>
+      <span class="badge badge-live">已上线</span>
+      <div class="card-icon">⏰</div>
+      <div class="card-title">Cron 定时任务 <span class="card-phase phase-1-tag">P1</span></div>
+      <div class="card-desc">每日执行 daily_search.sh → Pipeline (25 分钟超时) → 飞书推送 → git commit & push。日志写入 <code>logs/</code>。</div>
+      <div class="card-file">daily_search.sh</div>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg, var(--indigo), var(--purple))"></div>
+      <span class="badge badge-ready">已开发</span>
+      <div class="card-icon">🎛️</div>
+      <div class="card-title">Python 编排器 <span class="card-phase phase-2-tag">P2</span></div>
+      <div class="card-desc">采集 → 去重 → 三级漏斗 → 反馈闭环 → Wiki 编译 → 格式化消息 → 更新 seen。返回统计数据。</div>
+      <div class="card-file">daily_pipeline.py</div>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background:linear-gradient(90deg, var(--amber), var(--orange))"></div>
+      <span class="badge badge-manual">手动</span>
+      <div class="card-icon">🌱</div>
+      <div class="card-title">冷启动 Bootstrap</div>
+      <div class="card-desc">一次性执行：解析 Awesome List → 抓取摘要（3 秒限速）→ 生成嵌入向量。支持断点续传。</div>
+      <div class="card-file">bootstrap_embeddings.py</div>
+    </div>
+  </div>
+
+  <!-- ===== 技术栈 ===== -->
+  <div class="section-label">技术栈</div>
+
+  <div class="tech-grid">
+    <div class="tech-pill">🐍 Python 3.13</div>
+    <div class="tech-pill">🤖 Claude CLI</div>
+    <div class="tech-pill">🔤 jina-embeddings-v5-text-nano</div>
+    <div class="tech-pill">🧪 pytest · 135 tests</div>
+    <div class="tech-pill">📦 conda: paper-rec</div>
+    <div class="tech-pill">🔥 PyTorch + CUDA</div>
+    <div class="tech-pill">📡 arXiv + S2 API</div>
+    <div class="tech-pill">💬 飞书 MCP</div>
+    <div class="tech-pill">📚 Zotero API</div>
+    <div class="tech-pill">📓 Notion API</div>
+    <div class="tech-pill">📄 trafilatura (HTML)</div>
+    <div class="tech-pill">📄 pymupdf (PDF)</div>
+    <div class="tech-pill">🔗 Obsidian (Wiki)</div>
+  </div>
+
+  <!-- ===== 模块清单 ===== -->
+  <div class="section-label">完整模块清单（16 个 Python 模块 + 13 个测试文件）</div>
+
+  <div class="data-layer" style="margin-top:0;">
+    <div class="data-layer-title">🗂️ scripts/</div>
+    <div class="data-items">
+      <div class="data-item"><code>daily_pipeline.py</code> 管线编排 <span class="card-phase phase-2-tag">P2</span></div>
+      <div class="data-item"><code>taste_engine.py</code> 三级漏斗 <span class="card-phase phase-2-tag">P2</span></div>
+      <div class="data-item"><code>embedding_store.py</code> 向量存储 <span class="card-phase phase-2-tag">P2</span></div>
+      <div class="data-item"><code>wiki_compiler.py</code> Wiki 编译 <span class="card-phase phase-2-tag">P2</span></div>
+      <div class="data-item"><code>feedback.py</code> 反馈闭环 <span class="card-phase phase-2-tag">P2</span></div>
+      <div class="data-item"><code>fetch_paper.py</code> 元数据 + 全文 <span class="card-phase phase-1-tag">P1</span>+<span class="card-phase phase-2-tag">P2</span></div>
+      <div class="data-item"><code>search_papers.py</code> 搜索 <span class="card-phase phase-1-tag">P1</span></div>
+      <div class="data-item"><code>rss_fetcher.py</code> RSS <span class="card-phase phase-1-tag">P1</span></div>
+      <div class="data-item"><code>config.py</code> 配置 <span class="card-phase phase-1-tag">P1</span></div>
+      <div class="data-item"><code>git_writer.py</code> Git <span class="card-phase phase-1-tag">P1</span></div>
+      <div class="data-item"><code>zotero_client.py</code> Zotero <span class="card-phase phase-1-tag">P1</span></div>
+      <div class="data-item"><code>notion_client.py</code> Notion <span class="card-phase phase-1-tag">P1</span></div>
+      <div class="data-item"><code>bootstrap_embeddings.py</code> 冷启动 <span class="card-phase phase-2-tag">P2</span></div>
+      <div class="data-item"><code>profile_bootstrap.py</code> 品味冷启动 <span class="card-phase phase-1-tag">P1</span></div>
+      <div class="data-item"><code>source_discovery.py</code> 源发现 <span class="card-phase phase-2-tag">P2</span></div>
+      <div class="data-item"><code>generate_wordcloud.py</code> 词云 <span class="card-phase phase-1-tag">P1</span></div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
