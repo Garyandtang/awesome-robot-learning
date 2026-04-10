@@ -134,17 +134,12 @@ def compile_wiki_for_scored(
 ) -> int:
     """Compile wiki pages for papers at or above threshold.
 
-    For each paper: write paper analysis page, extract concepts,
-    create/update concept pages. Returns count compiled.
+    Uses the v2 two-step compiler: ingest raw data, then compile paper + concepts
+    in two LLM calls. Falls back to v1 if raw ingest fails.
+    Returns count compiled.
     """
-    from scripts.wiki_compiler import (
-        compile_paper_page,
-        extract_concepts_llm,
-        create_concept_page,
-        update_concept_page,
-        build_index_pages,
-        _slugify,
-    )
+    from scripts.raw_ingest import ingest_paper
+    from scripts.wiki_compiler import compile_paper_v2, build_index_pages
 
     resolved_wiki_dir = wiki_dir if wiki_dir is not None else get_wiki_path()
     min_level = _RELEVANCE_RANK.get(relevance_threshold, 2)
@@ -159,34 +154,26 @@ def compile_wiki_for_scored(
     compiled = 0
     for sp in to_compile:
         paper = sp.paper
+        arxiv_id = paper.get("arxiv_id", "")
         title = paper.get("title", "unknown")
 
-        # 1. Compile paper page
-        try:
-            compile_paper_page(paper, resolved_wiki_dir)
-        except Exception:
-            logger.exception("Failed to compile paper page: %s", title)
+        if not arxiv_id:
+            logger.warning("Skipping paper without arxiv_id: %s", title)
             continue
 
-        # 2. Extract and create/update concept pages
+        # 1. Ingest raw data
         try:
-            concepts = extract_concepts_llm(paper, resolved_wiki_dir)
-            for concept in concepts:
-                try:
-                    slug = _slugify(concept)
-                    concept_path = resolved_wiki_dir / "concepts" / f"{slug}.md"
-                    if concept_path.exists():
-                        update_concept_page(concept, paper, resolved_wiki_dir)
-                    else:
-                        create_concept_page(concept, paper, resolved_wiki_dir)
-                except Exception:
-                    logger.exception(
-                        "Failed to process concept '%s' for: %s", concept, title
-                    )
+            ingest_paper(arxiv_id, resolved_wiki_dir)
         except Exception:
-            logger.exception("Failed to extract concepts for: %s", title)
+            logger.exception("Failed to ingest raw data for %s, skipping", arxiv_id)
+            continue
 
-        compiled += 1
+        # 2. Compile paper + concepts via v2 two-step compiler
+        try:
+            compile_paper_v2(arxiv_id, wiki_dir=resolved_wiki_dir)
+            compiled += 1
+        except Exception:
+            logger.exception("Failed to compile paper v2: %s (%s)", title, arxiv_id)
 
     # Rebuild index pages
     try:

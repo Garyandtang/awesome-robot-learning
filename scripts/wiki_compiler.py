@@ -10,6 +10,8 @@ import time
 from datetime import date
 from pathlib import Path
 
+import yaml
+
 logger = logging.getLogger(__name__)
 
 WIKI_DIR = Path("wiki")
@@ -67,6 +69,51 @@ def _extract_json(raw: str) -> str:
     if match:
         return match.group(1).strip()
     return raw
+
+
+def _load_concept_aliases(wiki_dir: Path = WIKI_DIR) -> dict[str, list[str]]:
+    """Load concept canonical-name aliases from wiki/concepts/_aliases.yaml.
+
+    Returns {canonical_slug: [alias, ...]} or empty dict if file missing or malformed.
+    """
+    path = wiki_dir / "concepts" / "_aliases.yaml"
+    if not path.exists():
+        return {}
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError:
+        logger.warning("Failed to parse %s", path)
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {k: list(v) if isinstance(v, list) else [] for k, v in data.items()}
+
+
+def _format_aliases_for_prompt(aliases: dict[str, list[str]]) -> str:
+    """Format aliases dict as a prompt block guiding canonical concept naming.
+
+    Returns an empty string when aliases is empty so the prompt can omit the
+    whole section.
+    """
+    if not aliases:
+        return ""
+    lines = [
+        "",
+        "### 概念规范化（canonical names）",
+        "",
+        "如果论文提到以下任一 alias，请在 frontmatter `concepts[].name` 中统一使用左侧 canonical 名，不要创造新变体：",
+        "",
+    ]
+    for canonical in sorted(aliases):
+        alias_list = aliases[canonical]
+        if alias_list:
+            aliases_str = ", ".join(alias_list)
+            lines.append(f"- **{canonical}** ← {aliases_str}")
+        else:
+            lines.append(f"- **{canonical}**")
+    lines.append("")
+    lines.append("上表之外的概念可以新建，使用描述性 kebab-case slug（如 `force-torque-sensing`）。")
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -388,20 +435,22 @@ def update_concept_page(
 
 
 def build_index_pages(wiki_dir: Path = WIKI_DIR) -> None:
-    """Rebuild README and category pages."""
+    """Rebuild all index files: INDEX.md, papers/INDEX.md, concepts/INDEX.md, TOPIC-MAP.md, and README.md."""
+    from scripts.index_builder import build_all_indexes
+
+    build_all_indexes(wiki_dir)
+
+    # Also keep legacy README and category indexes
     build_wiki_readme(wiki_dir)
 
-    # Build category indexes from paper frontmatter
     categories_dir = wiki_dir / "categories"
     categories_dir.mkdir(parents=True, exist_ok=True)
 
-    # Scan papers for category/venue info
     categories: dict[str, list[dict]] = {}
     papers_dir = wiki_dir / "papers"
     if papers_dir.is_dir():
         for md_file in sorted(papers_dir.glob("*.md")):
             content = md_file.read_text(encoding="utf-8")
-            # Extract venue from frontmatter
             venue = _extract_frontmatter_field(content, "venue")
             if venue:
                 categories.setdefault(venue, []).append(
@@ -581,6 +630,700 @@ def compile_wiki_batch(
         stats["papers_compiled"],
         stats["concepts_created"],
         stats["concepts_updated"],
+    )
+    return stats
+
+
+# ---------------------------------------------------------------------------
+# V2 Two-Step Compilation (Karpathy Method redesign)
+# ---------------------------------------------------------------------------
+
+_MAX_FULLTEXT_V2 = 60_000  # ~15K tokens for Step 1 prompt
+
+
+def _build_step1_prompt(
+    raw_content: dict,
+    concepts_index: str,
+    topic_map: str,
+    aliases_block: str = "",
+) -> str:
+    """Build Step 1 prompt: Understand + Analyze + Classify.
+
+    raw_content: from raw_ingest.load_raw_content() — {meta, fulltext, repo_readme}
+    concepts_index: content of concepts/INDEX.md (or empty)
+    topic_map: content of TOPIC-MAP.md (or empty)
+    aliases_block: pre-formatted canonical concept name block
+        (see _format_aliases_for_prompt). Empty string means no aliases section.
+    """
+    meta = raw_content["meta"]
+    fulltext = raw_content.get("fulltext") or ""
+    repo_readme = raw_content.get("repo_readme") or ""
+    assets = meta.get("assets") or []
+
+    meta_block = (
+        f"标题: {meta['title']}\n"
+        f"作者: {', '.join(meta.get('authors', []))}\n"
+        f"日期: {meta.get('date', '')}\n"
+        f"发表: {meta.get('venue', 'arXiv')}\n"
+        f"链接: {meta.get('url', '')}"
+    )
+
+    content_block = fulltext[:_MAX_FULLTEXT_V2] if fulltext else f"摘要: {meta.get('abstract', '无全文和摘要')}"
+    repo_block = f"\n\n## Repo README\n\n{repo_readme[:10000]}" if repo_readme else ""
+
+    # Surface non-text raw assets so the compiler knows they exist.
+    asset_notes: list[str] = []
+    if "images.json" in assets:
+        asset_notes.append(
+            f"图片: 原始图片存于 raw/papers/{meta['id']}/images/，清单见 raw/papers/{meta['id']}/images.json"
+        )
+    if "formulas.md" in assets:
+        asset_notes.append(
+            f"公式候选: raw/papers/{meta['id']}/formulas.md (启发式抽取的数学行)"
+        )
+    assets_block = ("\n\n### 附加原始素材\n" + "\n".join(f"- {n}" for n in asset_notes)) if asset_notes else ""
+
+    concepts_block = f"\n### 概念索引\n{concepts_index}" if concepts_index.strip() else "\n### 概念索引\n（空，知识库尚无概念）"
+    topic_block = f"\n### 主题地图\n{topic_map}" if topic_map.strip() else "\n### 主题地图\n（空，知识库尚无主题地图）"
+
+    today = date.today().isoformat()
+
+    return f"""你是一个研究知识库的编译器。你的任务是分析一篇新论文，将它编译成知识库的一个页面。
+
+## 原始数据
+
+{meta_block}
+
+{content_block}
+{repo_block}
+{assets_block}
+
+## 知识库当前状态
+{concepts_block}
+{topic_block}
+{aliases_block}
+
+## 输出要求
+
+输出一个完整的 Markdown 文件，包含两部分：
+
+### Part A: YAML Frontmatter
+
+必须包含以下字段：
+- title, arxiv_id, date, venue, authors, url
+- repo_url（如有）
+- raw: "raw/papers/{meta['id']}"
+- compiled: "{today}"
+- summary: 一句话摘要（中文，<100字，供索引使用）
+- concepts: 数组，每个元素包含：
+  - name: 概念名（英文，使用知识库中已有名称优先）
+  - relation: extends | compares | uses | introduces
+  - detail: 一句话说明关系（中文）
+- new_concepts: 数组（只包含知识库中不存在的新概念），每个元素包含：
+  - name: 概念名
+  - suggested_topic: 在主题地图中的建议位置（格式："父主题 > 子主题"）
+  - description: 一行描述（中文，供索引使用）
+
+### Part B: 正文（深度分析）
+
+写一篇深度分析文章（中文），让该领域的研究者读完后能理解：
+- 这篇论文做了什么
+- 为什么重要
+- 和已有工作什么关系
+- 有什么局限
+
+要求：
+1. 用 [[概念名]] 格式创建 Obsidian 反向链接
+2. 关系要 typed：明确写"延伸了 [[X]]"、"对比 [[Y]]"、"使用了 [[Z]]"
+3. 如果有 repo，分析实现细节和论文描述的异同
+4. 不要使用固定模板——根据论文类型（方法/系统/综述）自行组织最合适的结构
+5. 分析要深入具体，不要泛泛而谈
+6. 直接输出 Markdown，不要输出解释、对话或元评论"""
+
+
+def _build_step2_prompt(
+    step1_frontmatter: dict,
+    step1_body_preview: str,
+    concept_pages: dict[str, str],
+    new_concepts: list[dict],
+) -> str:
+    """Build Step 2 prompt: Knowledge Integration.
+
+    step1_frontmatter: parsed YAML dict from Step 1 output
+    step1_body_preview: first 3000 chars of Step 1 body
+    concept_pages: {concept_name: existing page content}
+    new_concepts: list of {name, suggested_topic, description}
+    """
+    fm_text = yaml.dump(step1_frontmatter, allow_unicode=True, sort_keys=False, default_flow_style=False)
+
+    existing_block = ""
+    for name, content in concept_pages.items():
+        # Truncate each concept page to keep context manageable
+        truncated = content[:5000]
+        existing_block += f"\n### 概念: {name}\n```markdown\n{truncated}\n```\n"
+
+    new_block = ""
+    if new_concepts:
+        items = "\n".join(
+            f"- {nc['name']}: {nc.get('description', '')}（建议位置: {nc.get('suggested_topic', '未分类')}）"
+            for nc in new_concepts
+        )
+        new_block = f"\n## 需要新建的概念页\n\n{items}\n"
+
+    today = date.today().isoformat()
+
+    return f"""你是一个研究知识库的编译器。一篇新论文刚刚被编译到知识库中。
+你的任务是将新论文的知识整合到相关的概念页面中。
+
+## 新编译的论文
+
+### Frontmatter
+{fm_text}
+
+### 分析摘要
+{step1_body_preview}
+
+## 需要更新的概念页
+{existing_block if existing_block else "（无需更新的已有概念页）"}
+{new_block}
+
+## 什么才算"概念"（关键判据）
+
+概念页是**跨论文可复用的知识单元**，而不是某篇论文独有的贡献或命名。判断一个候选概念是否应该建页：
+
+- **应该建**：这个术语/方法/原理可能出现在未来 ≥3 篇论文里（例：impedance control、diffusion policy、force-torque sensing、CFG、action chunking）
+- **不应建**：它只是本论文的某个架构组件或新命名（例：某论文的 dual-path tactile encoder、asymmetric tokenizer、某篇的 reward 项名字）——这些内容应该**留在论文页里**作为方法细节，不要升格为独立概念页
+- **边界情况**：若该术语是本论文的**核心贡献且已被后续工作引用**（例：VIB、RDT-1B、RLHF），可以建页，但必须在页面正文明确说明来源论文
+
+如果"需要新建的概念页"列表里出现了明显是论文专属贡献的条目，**直接跳过它**（不要输出 `===NEW_CONCEPT:` 块），不要为它创建概念页。宁可少建，不要建垃圾。
+
+## 输出要求
+
+对每个概念输出更新/新建后的完整页面，用分隔符区分：
+
+对于**已有概念**：
+===CONCEPT: {{概念名}}===
+<frontmatter 和正文，不要任何 markdown 代码块围栏>
+
+对于**新概念**：
+===NEW_CONCEPT: {{概念名}}===
+<frontmatter 和正文，不要任何 markdown 代码块围栏>
+
+**重要的格式约束（违反会导致编译失败）**：
+1. **绝对不要**在 `===CONCEPT:` 和下一个 `===CONCEPT:` 之间用 ```` ```markdown ```` 或 ```` ``` ```` 包裹内容——直接输出纯 Markdown
+2. **绝对不要**在整个响应外围包一层代码块
+3. **绝对不要**输出空概念名 `===CONCEPT:  ===`——要么给出真实名字，要么跳过
+4. **绝对不要**在 `===CONCEPT:` 行后添加解释或对话
+
+### 更新策略
+
+已有概念页的更新必须是**有机整合**，不是追加：
+- 新论文推进了该概念 → 融入"发展历程"
+- 新论文应用该概念到新场景 → 扩展"应用"
+- 新论文对比/改进了已有方法 → 更新对比分析
+- 新论文解决了已提到的局限 → 更新局限性讨论
+
+### 概念页 frontmatter 格式
+
+---
+concept: "概念名"
+created: "首次创建日期"
+updated: "{today}"
+papers:
+  - "arxiv_id_1"
+  - "arxiv_id_2"
+parent_topic: "主题地图中的父主题"
+description: "一行描述（中文，供索引使用）"
+---
+
+### 概念页正文要求
+
+1. 使用 [[论文标题]] 或 [[arxiv_id]] 创建反向链接
+2. 全文中文
+3. 不要简单追加段落——重新组织使内容连贯
+4. 直接输出 Markdown，不要输出解释、对话或元评论"""
+
+
+def _parse_step1_output(raw_output: str) -> dict:
+    """Parse Step 1 LLM output into {frontmatter: dict, body: str}.
+
+    Tolerant of common LLM output variations:
+    - leading preamble text before the frontmatter
+    - markdown code fence wrappers (```markdown ... ``` or ```md ... ```)
+    - nested fences that confuse a naive regex
+
+    Strategy: strip all standalone code-fence lines (``` on their own line,
+    optionally with a language tag), then search for the first `---...---`
+    block that contains valid YAML with a `title` field. Try subsequent
+    candidates if the first one fails — this handles cases where Claude
+    emits spurious `---` separators before the real frontmatter.
+
+    Raises ValueError if parsing fails.
+    """
+    text = raw_output.strip()
+
+    # Drop standalone code-fence lines like ``` or ```markdown or ```yaml.
+    # These are never part of frontmatter or body for our purpose and only
+    # confuse frontmatter matching.
+    cleaned_lines = [
+        line for line in text.splitlines()
+        if not re.match(r"^\s*```[a-zA-Z0-9_+-]*\s*$", line)
+    ]
+    text = "\n".join(cleaned_lines).strip()
+
+    # Find all `---\n...\n---` candidates, trying each until one yields a
+    # valid YAML dict with at least a `title` field.
+    pattern = re.compile(
+        r"(?:^|\n)---[ \t]*\n(.*?)\n---[ \t]*(?:\n|$)",
+        re.DOTALL,
+    )
+
+    last_error: Exception | None = None
+    for match in pattern.finditer(text):
+        fm_text = match.group(1)
+        body = text[match.end():].strip()
+
+        try:
+            frontmatter = yaml.safe_load(fm_text)
+        except yaml.YAMLError as exc:
+            last_error = exc
+            continue
+
+        if not isinstance(frontmatter, dict):
+            continue
+
+        # Must have at least a title to be real frontmatter (not a markdown
+        # horizontal rule that happened to look like a delimiter).
+        if "title" not in frontmatter:
+            continue
+
+        return {"frontmatter": frontmatter, "body": body}
+
+    if last_error is not None:
+        raise ValueError(f"Invalid YAML in Step 1 frontmatter: {last_error}") from last_error
+    raise ValueError("Step 1 output has no YAML frontmatter")
+
+
+def _strip_code_fence(text: str) -> str:
+    """Strip a leading/trailing markdown code fence that wraps the whole block.
+
+    LLMs occasionally wrap their entire output in ```markdown ... ``` even when
+    asked not to. We only strip a fence that brackets the whole content; fences
+    that appear mid-content (legitimate code blocks) are left intact.
+    """
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+
+    # Match opening fence: ``` optionally followed by a language tag, then newline
+    m = re.match(r"^```[^\n]*\n", stripped)
+    if not m:
+        return stripped
+    without_open = stripped[m.end():]
+
+    # Match closing fence: optional trailing newline + ```
+    close_match = re.search(r"\n?```\s*$", without_open)
+    if not close_match:
+        return stripped  # unbalanced — leave alone
+    return without_open[: close_match.start()].strip()
+
+
+def _parse_step2_output(raw_output: str) -> list[dict]:
+    """Parse Step 2 LLM output into list of concept dicts.
+
+    Returns list of {name: str, content: str, is_new: bool}.
+
+    Robust to:
+    - LLM wrapping the whole output in ```markdown ... ``` fences
+    - Individual concept blocks being wrapped in code fences
+    - Empty concept names (===CONCEPT:  ===) — these are skipped
+    """
+    results: list[dict] = []
+
+    # If the LLM wrapped the entire response in a markdown code fence, strip it.
+    cleaned = _strip_code_fence(raw_output)
+
+    # Split on ===CONCEPT: or ===NEW_CONCEPT: delimiters
+    pattern = r"===(?:(NEW_)?CONCEPT):\s*(.+?)===\s*\n?"
+    parts = re.split(pattern, cleaned)
+
+    # parts will be: [preamble, is_new_1|None, name_1, content_1, is_new_2|None, name_2, content_2, ...]
+    i = 1  # skip preamble
+    while i + 2 < len(parts):
+        is_new = parts[i] is not None  # "NEW_" matched or None
+        name = parts[i + 1].strip()
+        content = _strip_code_fence(parts[i + 2])
+        # Skip entries with empty names (caused `.md` garbage file in wiki/concepts/)
+        if name and content:
+            results.append({
+                "name": name,
+                "content": content,
+                "is_new": is_new,
+            })
+        i += 3
+
+    return results
+
+
+def compile_paper_v2(
+    arxiv_id: str,
+    wiki_dir: Path = WIKI_DIR,
+) -> dict:
+    """Two-step compilation: Understand+Analyze → Knowledge Integration.
+
+    Reads from raw layer, writes paper page and concept pages.
+    Returns {paper_page, concepts_updated, concepts_created, frontmatter}.
+    """
+    from scripts.raw_ingest import load_raw_content, load_raw_meta
+
+    # 1. Load raw content
+    raw_content = load_raw_content(arxiv_id, wiki_dir)
+    meta = raw_content["meta"]
+
+    # 2. Load current wiki context
+    concepts_index_path = wiki_dir / "concepts" / "INDEX.md"
+    concepts_index = concepts_index_path.read_text(encoding="utf-8") if concepts_index_path.exists() else ""
+
+    topic_map_path = wiki_dir / "TOPIC-MAP.md"
+    topic_map = topic_map_path.read_text(encoding="utf-8") if topic_map_path.exists() else ""
+
+    # 3. Step 1: Understand + Analyze + Classify
+    aliases = _load_concept_aliases(wiki_dir)
+    aliases_block = _format_aliases_for_prompt(aliases)
+    step1_prompt = _build_step1_prompt(
+        raw_content, concepts_index, topic_map, aliases_block=aliases_block
+    )
+    logger.info("Step 1: analyzing %s (%s)", arxiv_id, meta["title"])
+    step1_output = _call_claude(step1_prompt, timeout=1200)
+
+    try:
+        parsed = _parse_step1_output(step1_output)
+    except ValueError:
+        # Dump raw output to disk for post-mortem debugging, then re-raise.
+        debug_path = wiki_dir / "raw" / "papers" / arxiv_id / "_step1_debug.txt"
+        try:
+            debug_path.parent.mkdir(parents=True, exist_ok=True)
+            debug_path.write_text(step1_output, encoding="utf-8")
+            logger.error("Dumped unparseable Step 1 output to %s", debug_path)
+        except Exception:
+            logger.exception("Failed to dump Step 1 debug output")
+        raise
+    frontmatter = parsed["frontmatter"]
+    body = parsed["body"]
+
+    # Write paper page — reassemble from parsed parts so any LLM preamble
+    # or code-fence wrapping is stripped, leaving a clean frontmatter+body.
+    fm_yaml = yaml.dump(frontmatter, allow_unicode=True, sort_keys=False, default_flow_style=False)
+    paper_content = f"---\n{fm_yaml}---\n\n{body}\n"
+
+    papers_dir = wiki_dir / "papers"
+    papers_dir.mkdir(parents=True, exist_ok=True)
+    paper_path = papers_dir / f"{arxiv_id}.md"
+    paper_path.write_text(paper_content, encoding="utf-8")
+    logger.info("Wrote paper page: %s", paper_path)
+
+    # 4. Prepare Step 2
+    concepts_in_fm = frontmatter.get("concepts", [])
+    new_concepts_in_fm = frontmatter.get("new_concepts", [])
+
+    # Collect existing concept pages that need updating
+    concept_pages: dict[str, str] = {}
+    concepts_dir = wiki_dir / "concepts"
+    concepts_dir.mkdir(parents=True, exist_ok=True)
+
+    for c in concepts_in_fm:
+        concept_name = c["name"] if isinstance(c, dict) else c
+        slug = _slugify(concept_name)
+        concept_path = concepts_dir / f"{slug}.md"
+        if concept_path.exists():
+            concept_pages[concept_name] = concept_path.read_text(encoding="utf-8")
+
+    # 5. Step 2: Knowledge Integration (skip if no concepts to process)
+    concepts_updated = 0
+    concepts_created = 0
+
+    if concept_pages or new_concepts_in_fm:
+        body_preview = body[:3000]
+        step2_prompt = _build_step2_prompt(
+            frontmatter, body_preview, concept_pages, new_concepts_in_fm,
+        )
+        logger.info("Step 2: integrating %d existing + %d new concepts",
+                     len(concept_pages), len(new_concepts_in_fm))
+
+        try:
+            step2_output = _call_claude(step2_prompt, timeout=1200)
+            concept_results = _parse_step2_output(step2_output)
+
+            for cr in concept_results:
+                slug = _slugify(cr["name"])
+                concept_path = concepts_dir / f"{slug}.md"
+                concept_path.write_text(cr["content"], encoding="utf-8")
+                if cr["is_new"]:
+                    concepts_created += 1
+                    logger.info("Created concept: %s", cr["name"])
+                else:
+                    concepts_updated += 1
+                    logger.info("Updated concept: %s", cr["name"])
+
+        except Exception:
+            # Fallback: use old individual concept compilation
+            logger.warning("Step 2 failed, falling back to individual concept compilation")
+            paper_dict = {
+                "title": meta["title"],
+                "authors": meta.get("authors", []),
+                "abstract": "",
+                "url": meta.get("url", ""),
+                "arxiv_id": meta["id"],
+            }
+            for name, existing_content in concept_pages.items():
+                try:
+                    update_concept_page(name, paper_dict, wiki_dir)
+                    concepts_updated += 1
+                except Exception:
+                    logger.exception("Fallback: failed to update concept %s", name)
+            for nc in new_concepts_in_fm:
+                try:
+                    create_concept_page(nc["name"], paper_dict, wiki_dir)
+                    concepts_created += 1
+                except Exception:
+                    logger.exception("Fallback: failed to create concept %s", nc["name"])
+
+    # 6. Update raw meta.yaml compile status
+    raw_meta = load_raw_meta(arxiv_id, wiki_dir)
+    if raw_meta:
+        raw_meta["compile_status"] = {
+            "compiled_at": date.today().isoformat(),
+            "wiki_page": f"papers/{arxiv_id}.md",
+            "stale": False,
+        }
+        raw_dir = wiki_dir / "raw" / "papers" / arxiv_id
+        meta_path = raw_dir / "meta.yaml"
+        with open(meta_path, "w", encoding="utf-8") as f:
+            yaml.dump(raw_meta, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
+
+    return {
+        "paper_page": paper_path,
+        "concepts_updated": concepts_updated,
+        "concepts_created": concepts_created,
+        "frontmatter": frontmatter,
+    }
+
+
+def rebuild_topic_map_llm(
+    wiki_dir: Path = WIKI_DIR,
+    timeout: int = 600,
+) -> Path:
+    """Rebuild wiki/TOPIC-MAP.md as a hierarchical topic map via LLM.
+
+    Reads all concept pages' frontmatter + first ~500 chars of body, plus the
+    existing TOPIC-MAP.md (if any) as context, then asks Claude to organize
+    concepts into 5-10 parent research topics. Overwrites TOPIC-MAP.md.
+
+    Unlike ``build_topic_map_scaffold`` in ``index_builder``, which only groups
+    concepts by a pre-existing ``parent_topic`` frontmatter field and refuses
+    to overwrite, this function produces a structured LLM-written map that
+    reflects the current concept graph as a whole. It is intended to be called
+    after ``compile_batch_v2`` so the topic hierarchy stays in sync with the
+    evolving wiki.
+
+    Returns the path to the written TOPIC-MAP.md.
+    """
+    from scripts.index_builder import parse_frontmatter
+
+    concepts_dir = wiki_dir / "concepts"
+    if not concepts_dir.is_dir():
+        logger.warning("No concepts directory at %s, skipping topic map rebuild", concepts_dir)
+        topic_map_path = wiki_dir / "TOPIC-MAP.md"
+        topic_map_path.write_text(
+            "# Topic Map\n\n> No concepts found yet.\n", encoding="utf-8"
+        )
+        return topic_map_path
+
+    # 1. Collect concept summaries: slug, name, short description
+    concept_entries: list[dict] = []
+    for md_file in sorted(concepts_dir.glob("*.md")):
+        if md_file.name == "INDEX.md":
+            continue
+        content = md_file.read_text(encoding="utf-8")
+        fm = parse_frontmatter(content) or {}
+        name = fm.get("concept") or md_file.stem.replace("-", " ").title()
+        # Grab the first non-empty paragraph after frontmatter as a description hint
+        body = re.sub(r"^---\s*\n.*?\n---\s*\n", "", content, count=1, flags=re.DOTALL)
+        body = body.strip()
+        # Take up to 300 chars of the first prose block
+        first_block = ""
+        for block in body.split("\n\n"):
+            cleaned = block.strip()
+            if cleaned and not cleaned.startswith("#"):
+                first_block = cleaned[:300]
+                break
+        concept_entries.append(
+            {
+                "slug": md_file.stem,
+                "name": str(name),
+                "hint": first_block,
+            }
+        )
+
+    if not concept_entries:
+        topic_map_path = wiki_dir / "TOPIC-MAP.md"
+        topic_map_path.write_text(
+            "# Topic Map\n\n> No concept pages found yet.\n", encoding="utf-8"
+        )
+        logger.info("TOPIC-MAP.md written as empty (no concepts)")
+        return topic_map_path
+
+    # 2. Current topic map as context (may not exist on first run)
+    topic_map_path = wiki_dir / "TOPIC-MAP.md"
+    current_topic_map = ""
+    if topic_map_path.exists():
+        current_topic_map = topic_map_path.read_text(encoding="utf-8")[:3000]
+
+    # 3. Build concept list for prompt
+    concept_lines = []
+    for entry in concept_entries:
+        hint = entry["hint"].replace("\n", " ") if entry["hint"] else ""
+        if hint:
+            concept_lines.append(f"- `{entry['slug']}` ({entry['name']}): {hint}")
+        else:
+            concept_lines.append(f"- `{entry['slug']}` ({entry['name']})")
+    concepts_block = "\n".join(concept_lines)
+
+    existing_block = ""
+    if current_topic_map:
+        existing_block = (
+            "\n\n### 现有 TOPIC-MAP.md（仅供参考，可自由重组）\n\n"
+            "```markdown\n"
+            f"{current_topic_map}\n"
+            "```\n"
+        )
+
+    prompt = f"""你是一位机器人学习领域的研究主题整理专家。请根据下面的 concept 列表，把它们组织成一份层次化的研究主题地图（TOPIC-MAP.md）。
+
+## 输入：concept 列表（共 {len(concept_entries)} 个）
+
+{concepts_block}
+{existing_block}
+
+## 任务
+
+把这些 concept 归类到 **5-10 个父主题**（parent topics）下，形成 Markdown 大纲。要求：
+
+1. **覆盖率**：列表中的每个 concept 都必须出现在某个父主题下（不要漏掉任何一个）
+2. **父主题命名**：使用简洁的英文名（如 "Policy Architectures"、"Force & Contact Control"、"Sim-to-Real"、"Sensing Modalities"、"Teleoperation & Data Collection"）
+3. **结构**：父主题用 `## ` 二级标题，子条目用 `- [[slug]]` 的 wikilink 格式
+4. **同级排序**：父主题按研究流程顺序排列（感知 → 表征 → 策略 → 控制 → 部署），子条目在每组内按字母序
+5. **去重**：同一 concept 不要出现在多个父主题下，只归到最相关的那一个
+6. **顶部加一行说明**：在第一行下方加一条 blockquote 说明这个文件是 LLM 自动维护的
+
+## 输出格式
+
+只输出 Markdown 内容，不要任何解释文字，不要用 ``` 代码块包裹。第一行必须是 `# Topic Map`。
+
+示例结构：
+
+# Topic Map
+
+> Research topic hierarchy. Auto-maintained by `rebuild_topic_map_llm`.
+
+## Policy Architectures
+- [[diffusion-policy]]
+- [[flow-matching-policy]]
+
+## Force & Contact Control
+- [[impedance-control]]
+- [[hybrid-force-position-control]]
+
+（按上面的规则为全部 {len(concept_entries)} 个 concept 生成）
+"""
+
+    # 4. Call Claude
+    logger.info("Calling Claude to rebuild TOPIC-MAP.md (%d concepts)", len(concept_entries))
+    raw_output = _call_claude(prompt, timeout=timeout)
+
+    # 5. Strip markdown code fences if present
+    fence_match = re.search(r"```(?:markdown|md)?\s*\n(.*?)\n```", raw_output, re.DOTALL)
+    if fence_match:
+        topic_map_content = fence_match.group(1).strip()
+    else:
+        topic_map_content = raw_output.strip()
+
+    if not topic_map_content.startswith("# "):
+        topic_map_content = "# Topic Map\n\n" + topic_map_content
+
+    # 6. Coverage check: warn (don't fail) on missing slugs
+    missing_slugs = [
+        entry["slug"]
+        for entry in concept_entries
+        if f"[[{entry['slug']}]]" not in topic_map_content
+    ]
+    if missing_slugs:
+        logger.warning(
+            "rebuild_topic_map_llm: %d concept(s) not placed in topic map: %s",
+            len(missing_slugs),
+            ", ".join(missing_slugs[:10]) + ("..." if len(missing_slugs) > 10 else ""),
+        )
+
+    # 7. Write it out
+    topic_map_path.write_text(topic_map_content + "\n", encoding="utf-8")
+    logger.info(
+        "Rebuilt TOPIC-MAP.md: %d concepts, %d missing, %d bytes",
+        len(concept_entries),
+        len(missing_slugs),
+        len(topic_map_content),
+    )
+    return topic_map_path
+
+
+def compile_batch_v2(
+    arxiv_ids: list[str],
+    wiki_dir: Path = WIKI_DIR,
+    max_papers: int = 30,
+) -> dict:
+    """Batch two-step compilation.
+
+    Returns {papers_compiled, concepts_created, concepts_updated, failed}.
+    """
+    stats = {
+        "papers_compiled": 0,
+        "concepts_created": 0,
+        "concepts_updated": 0,
+        "failed": [],
+    }
+
+    for i, arxiv_id in enumerate(arxiv_ids[:max_papers]):
+        logger.info("[%d/%d] Compiling %s", i + 1, len(arxiv_ids), arxiv_id)
+        try:
+            result = compile_paper_v2(arxiv_id, wiki_dir)
+            stats["papers_compiled"] += 1
+            stats["concepts_created"] += result["concepts_created"]
+            stats["concepts_updated"] += result["concepts_updated"]
+        except Exception:
+            logger.exception("Failed to compile %s", arxiv_id)
+            stats["failed"].append(arxiv_id)
+
+        # Rate limit between papers (2 LLM calls each)
+        if i < len(arxiv_ids) - 1:
+            time.sleep(2)
+
+    # Rebuild indexes
+    try:
+        build_index_pages(wiki_dir)
+    except Exception:
+        logger.exception("Failed to build index pages")
+
+    # LLM-rebuild TOPIC-MAP.md to reflect the updated concept graph
+    try:
+        rebuild_topic_map_llm(wiki_dir)
+    except Exception:
+        logger.exception("Failed to rebuild topic map via LLM")
+
+    logger.info(
+        "V2 batch complete: %d compiled, %d concepts created, %d updated, %d failed",
+        stats["papers_compiled"],
+        stats["concepts_created"],
+        stats["concepts_updated"],
+        len(stats["failed"]),
     )
     return stats
 
