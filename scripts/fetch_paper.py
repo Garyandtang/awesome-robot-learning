@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 ARXIV_API = "http://export.arxiv.org/api/query"
 S2_API = "https://api.semanticscholar.org/graph/v1/paper"
 
+# arXiv throttles clients using the default `python-requests/...` User-Agent
+# quite aggressively, so always identify ourselves with a real UA string.
+_USER_AGENT = "paper-collector/1.0 (research tool; +https://github.com/)"
+
 ARXIV_ID_RE = re.compile(r"(\d{4}\.\d{4,5})")
 
 
@@ -24,12 +28,34 @@ def parse_arxiv_id(url_or_id: str) -> str | None:
 
 
 def fetch_arxiv_metadata(arxiv_id: str) -> dict | None:
-    """Fetch metadata for a single paper from arXiv Atom API."""
-    resp = requests.get(
-        ARXIV_API,
-        params={"id_list": arxiv_id, "max_results": 1},
-        timeout=30,
-    )
+    """Fetch metadata for a single paper from arXiv Atom API.
+
+    Sends an explicit User-Agent (arXiv throttles default `python-requests`
+    much harder) and retries with exponential backoff on HTTP 429.
+    """
+    headers = {"User-Agent": _USER_AGENT}
+    max_retries = 5
+    backoff = 5  # 5, 10, 20, 40, 80 seconds
+    resp = None
+    for attempt in range(max_retries):
+        resp = requests.get(
+            ARXIV_API,
+            params={"id_list": arxiv_id, "max_results": 1},
+            headers=headers,
+            timeout=30,
+        )
+        if resp.status_code == 429 and attempt < max_retries - 1:
+            logger.warning(
+                "arXiv 429 for %s (attempt %d/%d); sleeping %ds",
+                arxiv_id,
+                attempt + 1,
+                max_retries,
+                backoff,
+            )
+            time.sleep(backoff)
+            backoff *= 2
+            continue
+        break
     resp.raise_for_status()
     feed = feedparser.parse(resp.text)
     if not feed.entries:
