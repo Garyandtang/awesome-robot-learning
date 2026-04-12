@@ -1275,6 +1275,278 @@ def rebuild_topic_map_llm(
     return topic_map_path
 
 
+# ---------------------------------------------------------------------------
+# Foundational concept backfill
+# ---------------------------------------------------------------------------
+
+
+def _find_missing_foundational_concepts(
+    wiki_dir: Path,
+    min_citations: int,
+) -> list[dict]:
+    """Scan papers' frontmatter for concept slugs that lack a concept page.
+
+    Returns a list of {slug, name, papers: [{arxiv_id, title, relation, detail}], count}
+    sorted by citation count descending, filtered by min_citations.
+    """
+    from scripts.index_builder import parse_frontmatter
+
+    concepts_dir = wiki_dir / "concepts"
+    papers_dir = wiki_dir / "papers"
+
+    existing_slugs: set[str] = set()
+    if concepts_dir.is_dir():
+        for f in concepts_dir.glob("*.md"):
+            if f.name == "INDEX.md":
+                continue
+            existing_slugs.add(f.stem)
+
+    # slug -> {name, papers: [{arxiv_id, title, relation, detail}]}
+    slug_data: dict[str, dict] = {}
+    if papers_dir.is_dir():
+        for md_file in sorted(papers_dir.glob("*.md")):
+            if md_file.name == "INDEX.md":
+                continue
+            content = md_file.read_text(encoding="utf-8")
+            fm = parse_frontmatter(content)
+            if not fm:
+                continue
+            arxiv_id = str(fm.get("arxiv_id") or md_file.stem)
+            title = str(fm.get("title") or md_file.stem)
+            for c in fm.get("concepts", []):
+                if isinstance(c, dict):
+                    name = str(c.get("name", "")).strip()
+                    slug = _slugify(c.get("slug") or name)
+                    relation = str(c.get("relation", "")).strip()
+                    detail = str(c.get("detail", "")).strip()
+                else:
+                    name = str(c).strip()
+                    slug = _slugify(name)
+                    relation = ""
+                    detail = ""
+                if not slug or slug in existing_slugs:
+                    continue
+                entry = slug_data.setdefault(slug, {"name": name or slug, "papers": []})
+                # Prefer a non-slug human name if we find one later
+                if name and entry["name"] == slug:
+                    entry["name"] = name
+                entry["papers"].append(
+                    {
+                        "arxiv_id": arxiv_id,
+                        "title": title,
+                        "relation": relation,
+                        "detail": detail,
+                    }
+                )
+
+    results: list[dict] = []
+    for slug, data in slug_data.items():
+        if len(data["papers"]) < min_citations:
+            continue
+        results.append(
+            {
+                "slug": slug,
+                "name": data["name"],
+                "papers": data["papers"],
+                "count": len(data["papers"]),
+            }
+        )
+    results.sort(key=lambda x: x["count"], reverse=True)
+    return results
+
+
+def _build_backfill_prompt(
+    slug: str,
+    name: str,
+    papers: list[dict],
+    topic_map_snippet: str,
+) -> str:
+    """Build a backfill prompt for one foundational concept."""
+    today = date.today().isoformat()
+
+    paper_lines = []
+    for p in papers[:20]:  # cap at 20 papers of context
+        rel = f" ({p['relation']})" if p["relation"] else ""
+        detail = p["detail"] if p["detail"] else "(无 detail)"
+        paper_lines.append(
+            f"- [[{p['arxiv_id']}]] {p['title'][:80]}{rel}\n  → {detail}"
+        )
+    papers_block = "\n".join(paper_lines)
+
+    topic_map_block = ""
+    if topic_map_snippet:
+        topic_map_block = (
+            "\n## 当前 TOPIC-MAP(供选择 parent_topic 时参考)\n\n"
+            f"{topic_map_snippet}\n"
+        )
+
+    return f"""你是一位机器人学习研究 wiki 的概念页编写者。请为下面这个**基础概念**撰写一个完整的 Markdown 概念页。
+
+## 概念
+
+- slug: `{slug}`
+- name: {name}
+- 被 {len(papers)} 篇论文引用
+
+## 所有引用该概念的论文(以及每篇论文对该概念的使用方式)
+
+{papers_block}
+{topic_map_block}
+
+## 任务
+
+写一个**概念页**,解释这个概念本身,而不是复述某一篇论文。目标读者是一个熟悉机器学习但对机器人学习具体子领域不一定熟悉的研究者。
+
+### 页面结构(建议,按内容调整)
+
+1. **定义**:用 2-4 句话清楚说明这个概念是什么、解决什么问题
+2. **核心机制 / 关键组件**:从上面的论文 detail 里抽取共性,说明这个方法/原理的关键组件或原理
+3. **为什么重要**:它在机器人学习里的定位,为什么值得单独成页
+4. **与相邻概念的关系**:用 [[wikilink]] 链接到相关概念,说明异同
+5. **代表性使用**:从 `papers` 列表里挑 3-5 个最具代表性的,用 [[arxiv_id]] 引用,说明每篇是怎么用 / 扩展 / 对比这个概念的
+6. **局限或开放问题**:如果从论文 detail 里能看出还没解决的问题,写出来
+
+### 硬要求
+
+1. **全文中文**
+2. **frontmatter 格式**如下(不要用代码栅栏包裹):
+
+---
+concept: "{slug}"
+created: "{today}"
+updated: "{today}"
+papers:
+{chr(10).join(f'  - "{p["arxiv_id"]}"' for p in papers[:20])}
+parent_topic: "<从 TOPIC-MAP 里选最合适的,格式为 'Parent > Child' 或单层 'Parent'>"
+description: "<一行中文描述,≤80 字,供索引使用>"
+---
+
+3. **不要**在整个响应外围包 ` ``` ` 代码栅栏
+4. **不要**输出任何解释、对话、元评论
+5. 正文里 **至少** 有 3 处 [[arxiv_id]] 或 [[concept-slug]] 格式的反向链接
+6. 整页长度控制在 600-1500 字之间
+
+现在直接开始输出,第一行就是 `---`。"""
+
+
+def backfill_foundational_concepts_llm(
+    wiki_dir: Path = WIKI_DIR,
+    min_citations: int = 5,
+    max_concepts: int | None = None,
+    timeout: int = 600,
+    dry_run: bool = False,
+) -> dict:
+    """Backfill missing foundational concept pages via LLM.
+
+    Scans all papers' frontmatter `concepts` list for slugs that don't have a
+    concept page yet, ranks by citation count, and for each slug above
+    `min_citations` generates a full concept page by synthesizing the
+    per-paper `detail` context.
+
+    Args:
+        wiki_dir: wiki root
+        min_citations: only backfill slugs referenced by ≥ this many papers
+        max_concepts: cap the number of concepts to backfill per run (None = all)
+        timeout: Claude CLI timeout per call
+        dry_run: if True, just return the plan without calling the LLM
+
+    Returns {created: [slug, ...], skipped: [slug, ...], failed: [(slug, err), ...]}
+    """
+    from scripts.index_builder import parse_frontmatter  # noqa: F401  (ensure avail)
+
+    missing = _find_missing_foundational_concepts(wiki_dir, min_citations)
+    if max_concepts is not None:
+        missing = missing[:max_concepts]
+
+    logger.info(
+        "backfill: %d foundational concepts to create (min_citations=%d)",
+        len(missing),
+        min_citations,
+    )
+
+    if dry_run:
+        return {
+            "plan": [(m["slug"], m["count"]) for m in missing],
+            "created": [],
+            "skipped": [],
+            "failed": [],
+        }
+
+    # Load current topic map for parent_topic hints
+    topic_map_path = wiki_dir / "TOPIC-MAP.md"
+    topic_map_snippet = ""
+    if topic_map_path.exists():
+        topic_map_snippet = topic_map_path.read_text(encoding="utf-8")[:2500]
+
+    concepts_dir = wiki_dir / "concepts"
+    concepts_dir.mkdir(parents=True, exist_ok=True)
+
+    created: list[str] = []
+    skipped: list[str] = []
+    failed: list[tuple[str, str]] = []
+
+    for i, entry in enumerate(missing, 1):
+        slug = entry["slug"]
+        target = concepts_dir / f"{slug}.md"
+        if target.exists():
+            logger.info("[%d/%d] %s: already exists, skipping", i, len(missing), slug)
+            skipped.append(slug)
+            continue
+
+        logger.info(
+            "[%d/%d] %s: backfilling (cited by %d papers)",
+            i,
+            len(missing),
+            slug,
+            entry["count"],
+        )
+        prompt = _build_backfill_prompt(
+            slug, entry["name"], entry["papers"], topic_map_snippet
+        )
+
+        try:
+            raw = _call_claude(prompt, timeout=timeout)
+        except Exception as exc:
+            logger.error("[%d/%d] %s: LLM call failed: %s", i, len(missing), slug, exc)
+            failed.append((slug, str(exc)))
+            continue
+
+        # Strip any outer code-fence the LLM may have added despite instructions
+        content = _strip_code_fence(raw)
+
+        # Must start with frontmatter delimiter
+        if not content.startswith("---"):
+            logger.warning(
+                "[%d/%d] %s: output missing frontmatter, skipping", i, len(missing), slug
+            )
+            failed.append((slug, "output missing frontmatter"))
+            continue
+
+        # Sanity check: parseable YAML frontmatter
+        from scripts.index_builder import parse_frontmatter as _pf
+        fm = _pf(content)
+        if fm is None:
+            logger.warning(
+                "[%d/%d] %s: frontmatter unparseable, skipping", i, len(missing), slug
+            )
+            failed.append((slug, "frontmatter unparseable"))
+            continue
+
+        target.write_text(content.rstrip() + "\n", encoding="utf-8")
+        logger.info(
+            "[%d/%d] %s: wrote %d bytes", i, len(missing), slug, len(content)
+        )
+        created.append(slug)
+
+    logger.info(
+        "backfill: %d created, %d skipped, %d failed",
+        len(created),
+        len(skipped),
+        len(failed),
+    )
+    return {"created": created, "skipped": skipped, "failed": failed}
+
+
 def compile_batch_v2(
     arxiv_ids: list[str],
     wiki_dir: Path = WIKI_DIR,
@@ -1404,3 +1676,267 @@ def lint_wiki(wiki_dir: Path = WIKI_DIR) -> list[str]:
                         )
 
     return warnings
+
+
+# ---------------------------------------------------------------------------
+# Concept Lint LLM — Phase 1 (read-only proposals)
+# ---------------------------------------------------------------------------
+
+
+def _gather_concept_signals(
+    wiki_dir: Path,
+) -> list[dict]:
+    """Collect structural signals for every concept page.
+
+    Returns list of dicts with keys:
+        slug, citation_count, citing_papers, parent_topic, description,
+        cross_link_in_count, body_head_200c
+    """
+    from scripts.index_builder import parse_frontmatter
+
+    concepts_dir = wiki_dir / "concepts"
+    if not concepts_dir.is_dir():
+        return []
+
+    # First pass: read all concept pages
+    signals: list[dict] = []
+    all_slugs: set[str] = set()
+    slug_to_body: dict[str, str] = {}
+
+    for md_file in sorted(concepts_dir.glob("*.md")):
+        if md_file.name in ("INDEX.md", "_aliases.yaml"):
+            continue
+        slug = md_file.stem
+        all_slugs.add(slug)
+        content = md_file.read_text(encoding="utf-8")
+        fm = parse_frontmatter(content)
+        body = re.sub(r"^---.*?---\s*", "", content, flags=re.DOTALL).strip()
+        slug_to_body[slug] = body
+
+        papers = []
+        if fm and isinstance(fm.get("papers"), list):
+            papers = [str(p) for p in fm["papers"]]
+
+        signals.append({
+            "slug": slug,
+            "citation_count": len(papers),
+            "citing_papers": papers,
+            "parent_topic": (fm.get("parent_topic") or "") if fm else "",
+            "description": (fm.get("description") or "") if fm else "",
+            "body_head_200c": body[:200],
+            "cross_link_in_count": 0,  # filled in second pass
+        })
+
+    # Second pass: count incoming cross-links from other concept pages
+    for sig in signals:
+        slug = sig["slug"]
+        pattern = re.compile(rf"\[\[{re.escape(slug)}\]\]")
+        count = 0
+        for other_slug, body in slug_to_body.items():
+            if other_slug == slug:
+                continue
+            if pattern.search(body):
+                count += 1
+        sig["cross_link_in_count"] = count
+
+    return signals
+
+
+def _is_demote_candidate(sig: dict) -> bool:
+    """Heuristic pre-filter for DEMOTE action.
+
+    A concept is a DEMOTE candidate when ALL of:
+      - cited by exactly 1 paper
+      - no incoming cross-links from other concept pages
+    """
+    return sig["citation_count"] == 1 and sig["cross_link_in_count"] == 0
+
+
+def _build_concept_lint_prompt(
+    signals: list[dict],
+    demote_candidates: list[dict],
+) -> str:
+    """Build the LLM prompt for concept lint."""
+    # Compact table of ALL concepts for context
+    all_rows = []
+    for s in signals:
+        all_rows.append(
+            f"| {s['slug']} | {s['citation_count']} | "
+            f"{s['cross_link_in_count']} | {s['parent_topic'][:40]} | "
+            f"{s['description'][:60]} |"
+        )
+    all_table = "\n".join(all_rows)
+
+    # Detailed block for DEMOTE candidates
+    candidate_blocks = []
+    for s in demote_candidates:
+        papers_str = ", ".join(s["citing_papers"][:3])
+        candidate_blocks.append(
+            f"### `{s['slug']}`\n"
+            f"- papers: [{papers_str}]\n"
+            f"- parent_topic: {s['parent_topic']}\n"
+            f"- description: {s['description'][:120]}\n"
+            f"- body (head 200c): {s['body_head_200c']}\n"
+        )
+    candidates_text = "\n".join(candidate_blocks) if candidate_blocks else "(无候选)"
+
+    return f"""你是机器人学习研究 wiki 的质量审核员。
+
+## 任务
+
+审核以下概念页列表，为每个 **DEMOTE 候选** 给出一个判定。
+
+## 背景
+
+这个 wiki 遵循 Karpathy 方法：**概念页**应该是跨论文共享的基础词表（如 "diffusion-policy"、"impedance-control"），**论文页**承载 paper-specific 的技术贡献细节。
+
+如果一个概念页只被 1 篇论文引用、没有其他概念页反向链接、且内容围绕单篇论文的特定实现细节展开,它更适合降级为该论文页的一个子节（demote）。
+
+但也有例外：某些概念虽然目前只被 1 篇引用，但它是领域内广泛使用的基础术语（如 "reinforcement-learning"、"sim-to-real"），不应降级。
+
+## 所有概念（上下文，共 {len(signals)} 个）
+
+| slug | cite_count | cross_link_in | parent_topic | description |
+|------|-----------|---------------|-------------|-------------|
+{all_table}
+
+## DEMOTE 候选（{len(demote_candidates)} 个，需要逐一判定）
+
+{candidates_text}
+
+## 输出要求
+
+返回一个 JSON 数组，每个元素对应一个 DEMOTE 候选。格式：
+
+```json
+[
+  {{"slug": "example-slug", "action": "DEMOTE", "target_paper": "2505.22159", "reason": "一句话理由"}},
+  {{"slug": "another-slug", "action": "KEEP", "reason": "一句话理由"}}
+]
+```
+
+action 只能是 `DEMOTE`（降级到论文页）或 `KEEP`（保留概念页）。
+如果 action 是 DEMOTE，必须给出 target_paper（该概念唯一引用的论文 ID）。
+
+现在直接输出 JSON，不要输出其他文字。"""
+
+
+def concept_lint_llm(
+    wiki_dir: Path = WIKI_DIR,
+    timeout: int = 600,
+) -> Path:
+    """Phase 1: read-only concept lint via LLM.
+
+    Gathers structural signals for all concepts, pre-filters DEMOTE
+    candidates, asks Claude for judgment, and writes proposals to
+    ``wiki/ideas/_concept-lint-{date}.md``.
+
+    Returns the path to the proposal file.
+    """
+    logger.info("concept_lint_llm: gathering signals")
+    signals = _gather_concept_signals(wiki_dir)
+    logger.info("concept_lint_llm: %d concepts scanned", len(signals))
+
+    demote_candidates = [s for s in signals if _is_demote_candidate(s)]
+    logger.info(
+        "concept_lint_llm: %d DEMOTE candidates (cite=1, cross_link_in=0)",
+        len(demote_candidates),
+    )
+
+    if not demote_candidates:
+        logger.info("concept_lint_llm: no candidates, nothing to do")
+        output_path = wiki_dir / "ideas" / f"_concept-lint-{date.today()}.md"
+        output_path.write_text(
+            f"---\nkind: concept-lint-proposal\ngenerated: {date.today()}\n"
+            f"total_scanned: {len(signals)}\nproposals_count: 0\n---\n\n"
+            "No DEMOTE candidates found.\n",
+            encoding="utf-8",
+        )
+        return output_path
+
+    prompt = _build_concept_lint_prompt(signals, demote_candidates)
+    logger.info(
+        "concept_lint_llm: calling LLM with %d candidates", len(demote_candidates)
+    )
+
+    raw = _call_claude(prompt, timeout=timeout)
+    json_str = _extract_json(raw)
+
+    try:
+        proposals = json.loads(json_str)
+    except json.JSONDecodeError as exc:
+        logger.error("concept_lint_llm: failed to parse LLM JSON: %s", exc)
+        # Write raw output for debugging
+        output_path = wiki_dir / "ideas" / f"_concept-lint-{date.today()}.md"
+        output_path.write_text(
+            f"---\nkind: concept-lint-proposal\ngenerated: {date.today()}\n"
+            f"total_scanned: {len(signals)}\nproposals_count: -1\n"
+            f"error: JSON parse failed\n---\n\n"
+            f"## Raw LLM output\n\n```\n{raw}\n```\n",
+            encoding="utf-8",
+        )
+        return output_path
+
+    # Build output document
+    demote_proposals = [p for p in proposals if p.get("action") == "DEMOTE"]
+    keep_proposals = [p for p in proposals if p.get("action") == "KEEP"]
+
+    lines = [
+        "---",
+        "kind: concept-lint-proposal",
+        f"generated: {date.today()}",
+        f"total_scanned: {len(signals)}",
+        f"proposals_count: {len(demote_proposals)}",
+        "---",
+        "",
+        f"# Concept Lint — {date.today()}",
+        "",
+        f"Scanned **{len(signals)}** concepts. "
+        f"Pre-filtered **{len(demote_candidates)}** DEMOTE candidates "
+        f"(cite=1, cross_link_in=0).",
+        "",
+        f"LLM confirmed **{len(demote_proposals)}** DEMOTE, "
+        f"**{len(keep_proposals)}** KEEP.",
+        "",
+    ]
+
+    if demote_proposals:
+        lines.append("## DEMOTE (需人审批)")
+        lines.append("")
+        for p in demote_proposals:
+            slug = p.get("slug", "?")
+            target = p.get("target_paper", "?")
+            reason = p.get("reason", "")
+            lines.append(f"### `{slug}` → [[{target}]]")
+            lines.append(f"**Reason:** {reason}")
+            lines.append("**Migration:**")
+            lines.append(f"  1. 读 `wiki/concepts/{slug}.md` 的 body")
+            lines.append(
+                f"  2. 把核心内容追加到 `wiki/papers/{target}.md` 的子节"
+            )
+            lines.append(
+                f"  3. 全 wiki grep `[[{slug}]]` 替换为 "
+                f"`[[{target}#{slug}]]`"
+            )
+            lines.append(f"  4. 删除 `wiki/concepts/{slug}.md`")
+            lines.append("  5. 重建 INDEX + TOPIC-MAP")
+            lines.append("")
+
+    if keep_proposals:
+        lines.append("## KEEP (LLM 判定保留)")
+        lines.append("")
+        for p in keep_proposals:
+            slug = p.get("slug", "?")
+            reason = p.get("reason", "")
+            lines.append(f"- **`{slug}`**: {reason}")
+        lines.append("")
+
+    output_path = wiki_dir / "ideas" / f"_concept-lint-{date.today()}.md"
+    (wiki_dir / "ideas").mkdir(parents=True, exist_ok=True)
+    output_path.write_text("\n".join(lines), encoding="utf-8")
+    logger.info(
+        "concept_lint_llm: wrote %d proposals to %s",
+        len(demote_proposals),
+        output_path,
+    )
+    return output_path

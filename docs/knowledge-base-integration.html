@@ -1,0 +1,142 @@
+<h2>Knowledge Base Integration</h2>
+<p class="subtitle">Karpathy's LLM Wiki 思路 × 我们的 Paper Recommendation 系统</p>
+
+<div style="margin: 2rem auto; max-width: 900px;">
+
+  <!-- Current vs Enhanced -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+
+    <!-- Current -->
+    <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+        <span style="background: #64748b; color: white; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">NOW</span>
+        <span style="color: #94a3b8; font-size: 0.85rem;">单向推荐</span>
+      </div>
+      <div style="font-size: 0.85rem; color: #94a3b8; line-height: 1.8;">
+        arXiv/S2/RSS<br>
+        &nbsp;&nbsp;&#8595;<br>
+        LLM 分类 (High/Med/Low)<br>
+        &nbsp;&nbsp;&#8595;<br>
+        飞书推送 + 存储<br>
+        &nbsp;&nbsp;&#8595;<br>
+        <span style="color: #ef4444;">&#10005; 知识散落在 Notion/Zotero/Git</span><br>
+        <span style="color: #ef4444;">&#10005; 无法跨论文关联</span><br>
+        <span style="color: #ef4444;">&#10005; 品味学习靠关键词</span>
+      </div>
+    </div>
+
+    <!-- Enhanced -->
+    <div style="background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.25); border-radius: 12px; padding: 1.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+        <span style="background: #22c55e; color: black; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">VISION</span>
+        <span style="color: #94a3b8; font-size: 0.85rem;">Knowledge Base 驱动的推荐</span>
+      </div>
+      <div style="font-size: 0.85rem; color: #94a3b8; line-height: 1.8;">
+        arXiv/S2/RSS<br>
+        &nbsp;&nbsp;&#8595;<br>
+        LLM 编译进 Wiki (raw/ → wiki/)<br>
+        &nbsp;&nbsp;&#8595;<br>
+        嵌入 + Wiki 语义理解<br>
+        &nbsp;&nbsp;&#8595;<br>
+        <span style="color: #22c55e;">&#10003; 知识结构化，概念关联</span><br>
+        <span style="color: #22c55e;">&#10003; "懂你" = 理解你的知识图谱</span><br>
+        <span style="color: #22c55e;">&#10003; Q&A / 可视化 / Obsidian</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Karpathy's Architecture mapped to ours -->
+  <div style="background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 1rem;">Karpathy 方法 → 我们的系统映射</h3>
+
+    <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.5rem; font-size: 0.85rem;">
+      <!-- Header -->
+      <div style="font-weight: 600; color: #a855f7; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);">Karpathy</div>
+      <div style="padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);"></div>
+      <div style="font-weight: 600; color: #22c55e; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);">我们的实现</div>
+
+      <!-- Row 1 -->
+      <div style="padding: 0.5rem 0; color: #cbd5e1;">raw/ 目录索引源文档</div>
+      <div style="padding: 0.5rem 0; color: #64748b;">&#8594;</div>
+      <div style="padding: 0.5rem 0; color: #cbd5e1;">data/raw/ 存论文 PDF + 博客 .md</div>
+
+      <!-- Row 2 -->
+      <div style="padding: 0.5rem 0; color: #cbd5e1;">LLM 编译 wiki (.md 文件)</div>
+      <div style="padding: 0.5rem 0; color: #64748b;">&#8594;</div>
+      <div style="padding: 0.5rem 0; color: #cbd5e1;">research_wiki/ 概念文章 + 反向链接</div>
+
+      <!-- Row 3 -->
+      <div style="padding: 0.5rem 0; color: #cbd5e1;">Obsidian 作为 IDE</div>
+      <div style="padding: 0.5rem 0; color: #64748b;">&#8594;</div>
+      <div style="padding: 0.5rem 0; color: #cbd5e1;">Obsidian vault = research_wiki/</div>
+
+      <!-- Row 4 -->
+      <div style="padding: 0.5rem 0; color: #cbd5e1;">Q&A 查询 wiki</div>
+      <div style="padding: 0.5rem 0; color: #64748b;">&#8594;</div>
+      <div style="padding: 0.5rem 0; color: #cbd5e1;">claude --print 查询 wiki 回答研究问题</div>
+
+      <!-- Row 5 -->
+      <div style="padding: 0.5rem 0; color: #cbd5e1;">查询结果回填 wiki</div>
+      <div style="padding: 0.5rem 0; color: #64748b;">&#8594;</div>
+      <div style="padding: 0.5rem 0; color: #cbd5e1;">研究笔记 + 论文对比 → 更新 wiki</div>
+
+      <!-- Row 6 -->
+      <div style="padding: 0.5rem 0; color: #cbd5e1;">Linting 健康检查</div>
+      <div style="padding: 0.5rem 0; color: #64748b;">&#8594;</div>
+      <div style="padding: 0.5rem 0; color: #cbd5e1;">定期 wiki 一致性检查 + 缺失补全</div>
+    </div>
+  </div>
+
+  <!-- Key Insight -->
+  <div style="background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 0.75rem;">核心洞察：Wiki IS the Taste Profile</h3>
+    <div style="font-size: 0.9rem; color: #cbd5e1; line-height: 1.7;">
+      现在的 <code>taste_profile.yaml</code> 是扁平的关键词列表，很难真正"懂你"。<br><br>
+      如果用 Karpathy 的方法，Wiki 本身就是最丰富的品味模型：<br>
+      <div style="margin: 0.75rem 0; padding-left: 1rem; border-left: 2px solid rgba(234,179,8,0.4);">
+        &#8226; Wiki 里 <b>diffusion policy</b> 的文章最多 → 你最关注这个方向<br>
+        &#8226; Wiki 里 <b>sim-to-real</b> 和 <b>force control</b> 有交叉链接 → 你关注它们的交叉<br>
+        &#8226; Wiki 里你标注了"方法太简单" → 负向信号<br>
+        &#8226; 新论文 vs Wiki 概念图的语义距离 → 比关键词匹配精准得多
+      </div>
+    </div>
+  </div>
+
+  <!-- Phased approach -->
+  <div style="background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.25); border-radius: 12px; padding: 1.5rem;">
+    <h3 style="margin-bottom: 1rem;">落地路径</h3>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+
+      <div style="background: rgba(255,255,255,0.06); border-radius: 8px; padding: 1rem;">
+        <div style="font-weight: 600; margin-bottom: 0.5rem; color: #3b82f6;">Phase 2a: 嵌入基础</div>
+        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.6;">
+          &#8226; taste_engine.py 三级漏斗<br>
+          &#8226; jina-embeddings 本地嵌入<br>
+          &#8226; 收集论文 = 正样本<br>
+          &#8226; 时间衰减权重
+        </div>
+      </div>
+
+      <div style="background: rgba(255,255,255,0.06); border-radius: 8px; padding: 1rem;">
+        <div style="font-weight: 600; margin-bottom: 0.5rem; color: #a855f7;">Phase 2b: Wiki 编译</div>
+        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.6;">
+          &#8226; raw/ 收集原始论文/博客<br>
+          &#8226; LLM 编译 → wiki/ .md 文件<br>
+          &#8226; 概念提取 + 反向链接<br>
+          &#8226; Obsidian vault 集成
+        </div>
+      </div>
+
+      <div style="background: rgba(255,255,255,0.06); border-radius: 8px; padding: 1rem;">
+        <div style="font-weight: 600; margin-bottom: 0.5rem; color: #22c55e;">Phase 3: Wiki 驱动推荐</div>
+        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.6;">
+          &#8226; Wiki 语义 → 品味模型<br>
+          &#8226; Q&A 查询研究问题<br>
+          &#8226; 自动 linting + 补全<br>
+          &#8226; 开源为独立产品
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

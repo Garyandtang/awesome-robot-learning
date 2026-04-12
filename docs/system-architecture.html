@@ -3,1037 +3,854 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>论文推荐系统 — 全架构图</title>
+<title>Force-VLA 论文推荐 + 知识库系统 — 全架构图</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 
   :root {
-    --bg: #fafbfe;
-    --surface: #ffffff;
-    --surface2: #f0f4ff;
-    --border: #e0e6f0;
-    --text: #1a1a2e;
-    --text-dim: #6b7394;
-    --blue: #4f6ef7;
-    --purple: #8b5cf6;
-    --green: #22c55e;
-    --emerald: #10b981;
-    --amber: #f59e0b;
-    --rose: #f43f5e;
-    --cyan: #06b6d4;
-    --orange: #f97316;
-    --pink: #ec4899;
-    --indigo: #6366f1;
-    --teal: #14b8a6;
-    --sky: #0ea5e9;
-    --lime: #84cc16;
-    --shadow: 0 2px 12px rgba(79, 110, 247, 0.08);
-    --shadow-hover: 0 8px 24px rgba(79, 110, 247, 0.15);
+    --bg: #0f1117;
+    --surface: #1a1d2e;
+    --surface2: #232740;
+    --surface3: #2d3150;
+    --border: #3a3f5c;
+    --text: #e8eaf6;
+    --text-dim: #8b91b0;
+    --blue: #5b8def;
+    --purple: #a78bfa;
+    --green: #4ade80;
+    --emerald: #34d399;
+    --amber: #fbbf24;
+    --rose: #fb7185;
+    --cyan: #22d3ee;
+    --orange: #fb923c;
+    --pink: #f472b6;
+    --indigo: #818cf8;
+    --teal: #2dd4bf;
+    --sky: #38bdf8;
+    --lime: #a3e635;
+    --shadow: 0 4px 24px rgba(0,0,0,0.3);
+    --glow-blue: 0 0 20px rgba(91,141,239,0.15);
+    --glow-purple: 0 0 20px rgba(167,139,250,0.15);
+    --glow-green: 0 0 20px rgba(74,222,128,0.15);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: 'Noto Sans SC', -apple-system, system-ui, sans-serif;
+    font-family: 'Noto Sans SC', system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
+    line-height: 1.6;
+    padding: 40px 24px;
     min-height: 100vh;
-    overflow-x: hidden;
   }
 
-  /* === HEADER === */
-  .header {
-    text-align: center;
-    padding: 3rem 2rem 2rem;
-    background: linear-gradient(135deg, #4f6ef7 0%, #8b5cf6 50%, #ec4899 100%);
-    color: white;
-    position: relative;
-  }
-  .header::after {
-    content: '';
-    position: absolute;
-    bottom: -30px; left: 0; right: 0;
-    height: 60px;
-    background: var(--bg);
-    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
-  }
-  .header h1 {
-    font-size: 2.2rem;
-    font-weight: 700;
-    margin-bottom: 0.4rem;
-    letter-spacing: -0.02em;
-  }
-  .header p {
-    opacity: 0.85;
-    font-size: 1rem;
-  }
-  .header .version-tag {
-    display: inline-block;
-    background: rgba(255,255,255,0.2);
-    backdrop-filter: blur(8px);
-    padding: 0.25rem 0.8rem;
-    border-radius: 99px;
-    font-size: 0.75rem;
-    margin-top: 0.5rem;
-    letter-spacing: 0.02em;
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
   }
 
-  /* === STATS === */
-  .stats-bar {
-    display: flex;
-    justify-content: center;
-    gap: 1.2rem;
-    padding: 0 2rem;
-    margin-top: -10px;
-    position: relative;
-    z-index: 2;
-    flex-wrap: wrap;
-  }
-  .stat-chip {
-    background: var(--surface);
-    border-radius: 16px;
-    padding: 1rem 1.8rem;
-    text-align: center;
-    box-shadow: var(--shadow);
-    border: 1px solid var(--border);
-  }
-  .stat-value {
-    font-size: 1.6rem;
+  h1 {
+    font-size: 2rem;
     font-weight: 700;
+    text-align: center;
+    margin-bottom: 8px;
     background: linear-gradient(135deg, var(--blue), var(--purple));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    letter-spacing: -0.02em;
   }
-  .stat-label {
-    font-size: 0.72rem;
+
+  .subtitle {
+    text-align: center;
     color: var(--text-dim);
-    margin-top: 0.1rem;
+    font-size: 0.95rem;
+    margin-bottom: 48px;
   }
 
-  /* === CANVAS === */
-  .canvas {
-    max-width: 1200px;
-    margin: 2rem auto 0;
-    padding: 0 2rem 4rem;
+  .subtitle code {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface2);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--cyan);
   }
 
-  /* === PHASE === */
-  .phase { margin-bottom: 2rem; }
-  .phase-header {
+  /* Section titles */
+  .section-title {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    margin-bottom: 1rem;
+    gap: 12px;
+    margin: 48px 0 20px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
   }
-  .phase-num {
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    display: flex;
+
+  .section-title .num {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
     font-size: 0.8rem;
     font-weight: 700;
-    color: white;
-    flex-shrink: 0;
-  }
-  .phase-title {
-    font-size: 1rem;
-    font-weight: 600;
-  }
-  .phase-sub {
-    font-size: 0.8rem;
-    color: var(--text-dim);
-    margin-left: 0.3rem;
+    color: #fff;
   }
 
-  /* === CARDS === */
-  .flow-row {
-    display: flex;
-    gap: 0.8rem;
-    flex-wrap: wrap;
-  }
+  /* Cards */
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 1.2rem;
-    flex: 1;
-    min-width: 200px;
-    position: relative;
+    border-radius: 16px;
+    padding: 24px;
     box-shadow: var(--shadow);
-    transition: transform 0.2s, box-shadow 0.2s;
-  }
-  .card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-hover);
-  }
-  .card-accent {
-    position: absolute;
-    top: 0; left: 1.2rem; right: 1.2rem;
-    height: 3px;
-    border-radius: 0 0 4px 4px;
-  }
-  .card-icon { font-size: 1.6rem; margin-bottom: 0.4rem; }
-  .card-title { font-size: 0.92rem; font-weight: 600; margin-bottom: 0.3rem; }
-  .card-desc { font-size: 0.78rem; color: var(--text-dim); line-height: 1.55; }
-  .card-file {
-    font-size: 0.68rem;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    margin-top: 0.5rem;
-    padding: 3px 8px;
-    border-radius: 6px;
-    background: var(--surface2);
-    display: inline-block;
-  }
-  .card-phase {
-    font-size: 0.6rem;
-    font-weight: 600;
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-left: 0.3rem;
-    vertical-align: middle;
-  }
-  .phase-1-tag { background: #dcfce7; color: #16a34a; }
-  .phase-2-tag { background: #dbeafe; color: #2563eb; }
-
-  /* === BADGES === */
-  .badge {
-    display: inline-block;
-    font-size: 0.62rem;
-    padding: 3px 10px;
-    border-radius: 99px;
-    font-weight: 600;
-    position: absolute;
-    top: 0.7rem;
-    right: 0.7rem;
-  }
-  .badge-live { background: #dcfce7; color: #16a34a; }
-  .badge-ready { background: #dbeafe; color: #2563eb; }
-  .badge-manual { background: #fef3c7; color: #d97706; }
-  .badge-pending { background: #fce7f3; color: #db2777; }
-
-  /* === CONNECTOR === */
-  .connector {
-    display: flex;
-    justify-content: center;
-    padding: 0.4rem 0;
-  }
-  .connector-arrow {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--blue), var(--purple));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 0.9rem;
-    box-shadow: 0 2px 8px rgba(79, 110, 247, 0.3);
-  }
-  .connector-label {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.3rem 0;
-  }
-  .connector-text {
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    font-weight: 500;
-  }
-
-  /* === FUNNEL === */
-  .funnel {
-    background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 50%, #fff1f2 100%);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 1.5rem;
-    box-shadow: var(--shadow);
-  }
-  .funnel-title {
-    font-size: 1.05rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-  .funnel-tag {
-    font-size: 0.68rem;
-    font-weight: 500;
-    color: var(--text-dim);
-    background: white;
-    padding: 2px 8px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-  }
-  .funnel-levels {
-    display: flex;
-    gap: 0.6rem;
-    align-items: stretch;
-    flex-wrap: wrap;
-  }
-  .level {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1rem;
-    flex: 1;
-    min-width: 190px;
-    text-align: center;
     position: relative;
     overflow: hidden;
   }
-  .level::before {
+
+  .card::before {
     content: '';
     position: absolute;
-    top: 0; left: 0; right: 0;
+    top: 0;
+    left: 0;
+    right: 0;
     height: 3px;
-  }
-  .level-1::before { background: linear-gradient(90deg, var(--green), var(--emerald)); }
-  .level-2::before { background: linear-gradient(90deg, var(--sky), var(--cyan)); }
-  .level-3::before { background: linear-gradient(90deg, var(--orange), var(--rose)); }
-  .level-num {
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.3rem;
-  }
-  .level-1 .level-num { color: var(--green); }
-  .level-2 .level-num { color: var(--cyan); }
-  .level-3 .level-num { color: var(--orange); }
-  .level-name { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.4rem; }
-  .level-detail { font-size: 0.75rem; color: var(--text-dim); line-height: 1.5; }
-  .level-cost {
-    font-size: 0.65rem;
-    font-weight: 600;
-    margin-top: 0.5rem;
-    padding: 3px 10px;
-    border-radius: 99px;
-    display: inline-block;
-  }
-  .cost-free { background: #dcfce7; color: #16a34a; }
-  .cost-local { background: #cffafe; color: #0891b2; }
-  .cost-api { background: #ffedd5; color: #ea580c; }
-
-  .arrow-between {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.3rem;
-    color: var(--blue);
-    flex-shrink: 0;
-    font-weight: 700;
+    border-radius: 16px 16px 0 0;
   }
 
-  /* === DATA LAYER === */
-  .data-layer {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 1rem 1.2rem;
-    margin-top: 0.8rem;
-    box-shadow: var(--shadow);
-  }
-  .data-layer-title {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--text-dim);
-    margin-bottom: 0.6rem;
-  }
-  .data-items { display: flex; gap: 0.6rem; flex-wrap: wrap; }
-  .data-item {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.45rem 0.8rem;
-    font-size: 0.73rem;
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-  .data-item code {
-    color: var(--blue);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68rem;
-    font-weight: 500;
-  }
-
-  /* === OUTPUT GRID === */
-  .output-grid {
+  /* Flow layout */
+  .flow-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 0.7rem;
+    gap: 20px;
   }
-  .output-card {
-    background: var(--surface);
+
+  .flow-3col { grid-template-columns: repeat(3, 1fr); }
+  .flow-2col { grid-template-columns: repeat(2, 1fr); }
+  .flow-4col { grid-template-columns: repeat(4, 1fr); }
+  .flow-5col { grid-template-columns: repeat(5, 1fr); }
+
+  @media (max-width: 1000px) {
+    .flow-3col, .flow-4col, .flow-5col { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 600px) {
+    .flow-3col, .flow-4col, .flow-5col, .flow-2col { grid-template-columns: 1fr; }
+  }
+
+  /* Module cards */
+  .module {
+    padding: 16px;
+    border-radius: 12px;
     border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 1.1rem;
-    text-align: center;
-    box-shadow: var(--shadow);
+    background: var(--surface2);
     transition: transform 0.2s, box-shadow 0.2s;
-    position: relative;
-    overflow: hidden;
-  }
-  .output-card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-hover);
-  }
-  .output-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-  }
-  .out-feishu::before { background: linear-gradient(90deg, #3b82f6, #06b6d4); }
-  .out-readme::before { background: linear-gradient(90deg, #22c55e, #84cc16); }
-  .out-zotero::before { background: linear-gradient(90deg, #f43f5e, #f97316); }
-  .out-notion::before { background: linear-gradient(90deg, #8b5cf6, #ec4899); }
-  .out-cloud::before { background: linear-gradient(90deg, #f59e0b, #f97316); }
-  .output-icon { font-size: 2rem; margin-bottom: 0.3rem; }
-  .output-name { font-size: 0.88rem; font-weight: 600; }
-  .output-detail { font-size: 0.7rem; color: var(--text-dim); margin-top: 0.2rem; line-height: 1.4; }
-
-  /* === FEEDBACK === */
-  .feedback-section { display: flex; gap: 0.8rem; flex-wrap: wrap; }
-  .feedback-card {
-    background: var(--surface);
-    border: 2px dashed var(--border);
-    border-radius: 14px;
-    padding: 1.2rem;
-    flex: 1;
-    min-width: 220px;
-    position: relative;
-    transition: border-color 0.2s, border-style 0.2s;
-  }
-  .feedback-card:hover {
-    border-color: var(--purple);
-    border-style: solid;
-    box-shadow: var(--shadow-hover);
   }
 
-  /* === WIKI STRUCTURE === */
-  .wiki-tree {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 1.2rem;
-    margin-top: 0.8rem;
-    box-shadow: var(--shadow);
+  .module:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
   }
-  .wiki-tree-title {
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin-bottom: 0.8rem;
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-  .wiki-dir {
+
+  .module .name {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.72rem;
-    line-height: 1.8;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .module .desc {
+    font-size: 0.8rem;
     color: var(--text-dim);
-    padding-left: 0.5rem;
+    line-height: 1.4;
   }
-  .wiki-dir .dir { color: var(--blue); font-weight: 600; }
-  .wiki-dir .file { color: var(--text-dim); }
-  .wiki-dir .count { color: var(--purple); font-weight: 500; }
 
-  /* === LOOP DIAGRAM === */
-  .loop-container {
-    background: linear-gradient(135deg, #fef3c7 0%, #fce7f3 50%, #dbeafe 100%);
-    border: 2px solid var(--border);
-    border-radius: 18px;
-    padding: 1.5rem;
-    margin-top: 0.8rem;
-    position: relative;
+  .module .tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
   }
-  .loop-title {
-    font-size: 0.95rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-    text-align: center;
-  }
-  .loop-steps {
+
+  /* Color themes */
+  .t-blue .name { color: var(--blue); }
+  .t-blue .tag { background: rgba(91,141,239,0.15); color: var(--blue); }
+  .t-purple .name { color: var(--purple); }
+  .t-purple .tag { background: rgba(167,139,250,0.15); color: var(--purple); }
+  .t-green .name { color: var(--green); }
+  .t-green .tag { background: rgba(74,222,128,0.15); color: var(--green); }
+  .t-cyan .name { color: var(--cyan); }
+  .t-cyan .tag { background: rgba(34,211,238,0.15); color: var(--cyan); }
+  .t-amber .name { color: var(--amber); }
+  .t-amber .tag { background: rgba(251,191,36,0.15); color: var(--amber); }
+  .t-rose .name { color: var(--rose); }
+  .t-rose .tag { background: rgba(251,113,133,0.15); color: var(--rose); }
+  .t-orange .name { color: var(--orange); }
+  .t-orange .tag { background: rgba(249,115,22,0.15); color: var(--orange); }
+  .t-pink .name { color: var(--pink); }
+  .t-pink .tag { background: rgba(244,114,182,0.15); color: var(--pink); }
+  .t-teal .name { color: var(--teal); }
+  .t-teal .tag { background: rgba(45,212,191,0.15); color: var(--teal); }
+
+  /* Arrow connectors */
+  .arrow-down {
     display: flex;
-    gap: 0.5rem;
-    align-items: center;
     justify-content: center;
-    flex-wrap: wrap;
-  }
-  .loop-step {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 0.6rem 0.9rem;
-    font-size: 0.75rem;
-    text-align: center;
-    min-width: 100px;
-    box-shadow: var(--shadow);
-  }
-  .loop-step strong { display: block; font-size: 0.8rem; margin-bottom: 0.2rem; }
-  .loop-arrow {
-    font-size: 1.1rem;
-    color: var(--purple);
-    font-weight: 700;
-  }
-  .loop-return {
-    text-align: center;
-    font-size: 0.7rem;
-    color: var(--rose);
-    font-weight: 600;
-    margin-top: 0.8rem;
-    padding-top: 0.6rem;
-    border-top: 1px dashed var(--border);
+    padding: 12px 0;
+    color: var(--text-dim);
+    font-size: 1.5rem;
   }
 
-  /* === SECTION LABEL === */
-  .section-label {
-    font-size: 0.72rem;
-    font-weight: 600;
+  .arrow-label {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin: -4px 0 8px;
+    font-style: italic;
+  }
+
+  /* Pipeline visualization */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin: 16px 0;
+  }
+
+  .pipeline-stage {
+    flex: 1;
+    padding: 16px;
+    border: 1px solid var(--border);
+    position: relative;
+    background: var(--surface2);
+  }
+
+  .pipeline-stage:first-child {
+    border-radius: 12px 0 0 12px;
+  }
+
+  .pipeline-stage:last-child {
+    border-radius: 0 12px 12px 0;
+  }
+
+  .pipeline-stage .stage-num {
+    font-size: 0.7rem;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--text-dim);
-    margin: 2.5rem 0 0.8rem;
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-  }
-  .section-label::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, var(--border), transparent);
+    margin-bottom: 6px;
   }
 
-  /* === LEGEND === */
+  .pipeline-stage .stage-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+  }
+
+  .pipeline-stage .stage-desc {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .pipeline-stage .stage-cost {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-weight: 600;
+  }
+
+  .pipeline-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    flex-shrink: 0;
+    color: var(--text-dim);
+    font-size: 1.2rem;
+    background: var(--surface);
+  }
+
+  /* Wiki structure */
+  .tree {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.8;
+    color: var(--text-dim);
+    padding: 16px 20px;
+    background: var(--surface2);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+
+  .tree .dir { color: var(--amber); font-weight: 600; }
+  .tree .file { color: var(--text); }
+  .tree .comment { color: var(--text-dim); font-size: 0.75rem; }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 24px 0;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat .val {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .stat .label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* Legend */
   .legend {
     display: flex;
-    gap: 1.5rem;
-    justify-content: center;
-    padding: 1rem;
-    margin-bottom: 0.5rem;
+    gap: 16px;
     flex-wrap: wrap;
+    justify-content: center;
+    margin: 16px 0;
+    font-size: 0.75rem;
+    color: var(--text-dim);
   }
+
   .legend-item {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
-    font-size: 0.75rem;
-    color: var(--text-dim);
+    gap: 6px;
   }
+
   .legend-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
   }
 
-  /* === TECH PILLS === */
-  .tech-grid {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    justify-content: center;
-    padding: 0.5rem;
-  }
-  .tech-pill {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 99px;
-    padding: 0.4rem 1rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-
-  /* === PIPELINE ORDER === */
-  .pipeline-order {
+  /* Data flow diagram */
+  .dataflow {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 1.2rem;
-    margin-top: 0.8rem;
+    border-radius: 16px;
+    padding: 32px;
     box-shadow: var(--shadow);
   }
-  .pipeline-order-title {
-    font-size: 0.82rem;
-    font-weight: 600;
-    margin-bottom: 0.8rem;
-  }
-  .pipeline-steps {
+
+  .dataflow-row {
     display: flex;
-    gap: 0.3rem;
     align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 8px 0;
     flex-wrap: wrap;
   }
-  .pipeline-step {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.4rem 0.7rem;
-    font-size: 0.7rem;
-    font-weight: 500;
-    white-space: nowrap;
-  }
-  .pipeline-sep { color: var(--blue); font-weight: 700; font-size: 0.85rem; }
 
-  @media (max-width: 768px) {
-    .header h1 { font-size: 1.5rem; }
-    .stats-bar { gap: 0.5rem; }
-    .stat-chip { padding: 0.7rem 1rem; }
-    .funnel-levels { flex-direction: column; }
-    .arrow-between { transform: rotate(90deg); }
-    .flow-row { flex-direction: column; }
-    .loop-steps { flex-direction: column; }
-    .loop-arrow { transform: rotate(90deg); }
-    .pipeline-steps { flex-direction: column; align-items: flex-start; }
-    .pipeline-sep { transform: rotate(90deg); }
+  .df-box {
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    border: 1px solid;
+    text-align: center;
+    min-width: 120px;
+  }
+
+  .df-arrow {
+    color: var(--text-dim);
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  .df-arrow-down {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 1.2rem;
+    padding: 4px 0;
+  }
+
+  .df-note {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 2px;
+    font-style: italic;
   }
 </style>
 </head>
 <body>
+<div class="container">
 
-<div class="header">
-  <h1>论文推荐系统</h1>
-  <p>awesome-robot-learning · Source → Taste → Present → Wiki</p>
-  <div class="version-tag">Phase 1 已上线 · Phase 2 开发完成 · 2026-04-08</div>
-</div>
+<h1>Force-VLA 论文推荐 + 知识库系统</h1>
+<p class="subtitle">
+  awesome-robot-learning &mdash; 基于 Karpathy 方法的 LLM 知识库 + 三级品味推荐漏斗<br>
+  <code>2026-04-09</code> 最后更新
+</p>
+
+<!-- ============================================================ -->
+<!-- STATS -->
+<!-- ============================================================ -->
 
 <div class="stats-bar">
-  <div class="stat-chip"><div class="stat-value">510</div><div class="stat-label">语料库论文</div></div>
-  <div class="stat-chip"><div class="stat-value">768d</div><div class="stat-label">向量维度</div></div>
-  <div class="stat-chip"><div class="stat-value">3 级</div><div class="stat-label">推荐漏斗</div></div>
-  <div class="stat-chip"><div class="stat-value">6</div><div class="stat-label">输出通道</div></div>
-  <div class="stat-chip"><div class="stat-value">135</div><div class="stat-label">自动化测试</div></div>
+  <div class="stat"><div class="val" style="color:var(--blue)">20</div><div class="label">Python 模块</div></div>
+  <div class="stat"><div class="val" style="color:var(--purple)">3</div><div class="label">推荐层级</div></div>
+  <div class="stat"><div class="val" style="color:var(--green)">2</div><div class="label">LLM 调用/篇</div></div>
+  <div class="stat"><div class="val" style="color:var(--cyan)">4</div><div class="label">输出渠道</div></div>
+  <div class="stat"><div class="val" style="color:var(--amber)">88</div><div class="label">测试用例</div></div>
 </div>
 
-<div class="canvas">
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>数据源</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>品味引擎</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>知识库</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>输出</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--cyan)"></div>配置</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--rose)"></div>反馈</div>
+</div>
 
-  <div class="legend">
-    <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> 已上线（每日 cron）</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div> 开发完成（待激活）</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div> 手动触发</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--pink)"></div> 待开发</div>
+<!-- ============================================================ -->
+<!-- 1. DATA SOURCES -->
+<!-- ============================================================ -->
+
+<div class="section-title">
+  <span class="num" style="background:var(--blue)">1</span>
+  数据源层 — 论文发现
+</div>
+
+<div class="flow-grid flow-5col">
+  <div class="module t-blue">
+    <div class="name">search_papers.py</div>
+    <div class="desc">arXiv API 搜索 + Semantic Scholar 学术图谱</div>
+    <span class="tag">每日搜索</span>
   </div>
-
-  <!-- ===== 1. 数据源 ===== -->
-  <div class="phase">
-    <div class="phase-header">
-      <div class="phase-num" style="background:linear-gradient(135deg, var(--blue), var(--sky))">1</div>
-      <div class="phase-title">数据源层 <span class="card-phase phase-1-tag">P1</span><span class="phase-sub">· 论文采集 + 全文获取</span></div>
-    </div>
-    <div class="flow-row">
-      <div class="card">
-        <div class="card-accent" style="background:linear-gradient(90deg, #4f6ef7, #06b6d4)"></div>
-        <span class="badge badge-live">已上线</span>
-        <div class="card-icon">📡</div>
-        <div class="card-title">arXiv API</div>
-        <div class="card-desc">广域搜索 cs.RO + cs.AI（100 篇）+ 按主题定向查询（每主题 50 篇），回溯 2 天。</div>
-        <div class="card-file">search_papers.py</div>
-      </div>
-      <div class="card">
-        <div class="card-accent" style="background:linear-gradient(90deg, #8b5cf6, #ec4899)"></div>
-        <span class="badge badge-live">已上线</span>
-        <div class="card-icon">🔬</div>
-        <div class="card-title">Semantic Scholar</div>
-        <div class="card-desc">按研究领域过滤，每主题 30 篇。提供引用数、开放获取、期刊等丰富元数据。</div>
-        <div class="card-file">search_papers.py</div>
-      </div>
-      <div class="card">
-        <div class="card-accent" style="background:linear-gradient(90deg, #f97316, #f59e0b)"></div>
-        <span class="badge badge-live">已上线</span>
-        <div class="card-icon">📰</div>
-        <div class="card-title">RSS 订阅源</div>
-        <div class="card-desc">实验室博客、个人网站、会议 Feed。回溯 7 天，统一格式输出。</div>
-        <div class="card-file">rss_fetcher.py</div>
-      </div>
-      <div class="card">
-        <div class="card-accent" style="background:linear-gradient(90deg, #14b8a6, #22c55e)"></div>
-        <span class="badge badge-ready">已开发</span>
-        <div class="card-icon">📄</div>
-        <div class="card-title">全文获取 <span class="card-phase phase-2-tag">P2</span></div>
-        <div class="card-desc">HTML 优先（trafilatura）+ PDF 兜底（pymupdf）。截断至 80K 字符，供 Wiki 编译使用。</div>
-        <div class="card-file">fetch_paper.py</div>
-      </div>
-      <div class="card">
-        <div class="card-accent" style="background:linear-gradient(90deg, var(--teal), var(--emerald))"></div>
-        <span class="badge badge-ready">已开发</span>
-        <div class="card-icon">🔍</div>
-        <div class="card-title">源发现</div>
-        <div class="card-desc">每月执行：从语料库提取高产作者 → 搜索主页 → 生成 RSS 候选列表。</div>
-        <div class="card-file">source_discovery.py</div>
-      </div>
-    </div>
+  <div class="module t-blue">
+    <div class="name">rss_fetcher.py</div>
+    <div class="desc">RSS/Atom 博客订阅抓取</div>
+    <span class="tag">增量抓取</span>
   </div>
-
-  <div class="connector"><div class="connector-arrow">↓</div></div>
-
-  <!-- ===== 2. 去重 ===== -->
-  <div class="phase">
-    <div class="phase-header">
-      <div class="phase-num" style="background:linear-gradient(135deg, var(--cyan), var(--teal))">2</div>
-      <div class="phase-title">去重过滤 <span class="card-phase phase-1-tag">P1</span><span class="phase-sub">· 避免重复推荐</span></div>
-    </div>
-    <div class="flow-row">
-      <div class="card" style="max-width:500px;">
-        <div class="card-accent" style="background:linear-gradient(90deg, var(--cyan), var(--teal))"></div>
-        <span class="badge badge-live">已上线</span>
-        <div class="card-icon">🧹</div>
-        <div class="card-title">已读论文过滤</div>
-        <div class="card-desc">根据 arxiv_id 或 rss:url 查询 seen_papers.json，跳过已处理论文。每次运行后自动追加更新。</div>
-        <div class="card-file">data/seen_papers.json · 101 条记录</div>
-      </div>
-    </div>
+  <div class="module t-blue">
+    <div class="name">fetch_paper.py</div>
+    <div class="desc">单篇论文 metadata + fulltext 获取</div>
+    <span class="tag">arXiv + S2 + PDF</span>
   </div>
-
-  <div class="connector"><div class="connector-arrow">↓</div></div>
-
-  <!-- ===== 3. 品味引擎 ===== -->
-  <div class="phase">
-    <div class="phase-header">
-      <div class="phase-num" style="background:linear-gradient(135deg, var(--purple), var(--pink))">3</div>
-      <div class="phase-title">品味引擎 <span class="card-phase phase-2-tag">P2</span><span class="phase-sub">· 三级推荐漏斗</span></div>
-    </div>
-    <div class="funnel">
-      <div class="funnel-title">
-        🎯 filter_candidates()
-        <span class="funnel-tag">taste_engine.py</span>
-        <span class="funnel-tag" style="background:#dcfce7; color:#16a34a;">开发完成 2026-04-08</span>
-      </div>
-      <div class="funnel-levels">
-        <div class="level level-1">
-          <div class="level-num">LEVEL 1</div>
-          <div class="level-name">硬规则过滤</div>
-          <div class="level-detail">
-            13 个正向关键词<br>
-            5 个负向关键词<br>
-            3 位白名单作者<br>
-            负向规则优先<br>
-            ~200 → ~80-120
-          </div>
-          <div class="level-cost cost-free">零成本</div>
-        </div>
-        <div class="arrow-between">→</div>
-        <div class="level level-2">
-          <div class="level-num">LEVEL 2</div>
-          <div class="level-name">语义排序</div>
-          <div class="level-detail">
-            jina-embeddings-v5-text-nano<br>
-            33M 参数 · 768 维 · CPU<br>
-            <strong>日期衰减</strong>加权余弦相似度<br>
-            半衰期 24 月 · exp(-λ·age)<br>
-            取 Top-K = 30
-          </div>
-          <div class="level-cost cost-local">本地计算</div>
-        </div>
-        <div class="arrow-between">→</div>
-        <div class="level level-3">
-          <div class="level-num">LEVEL 3</div>
-          <div class="level-name">LLM 品味评分</div>
-          <div class="level-detail">
-            Claude CLI (--print)<br>
-            中文 Prompt + 品味画像<br>
-            <strong>Wiki 概念</strong>作为上下文<br>
-            输出：High / Medium / Low<br>
-            + 中文推荐理由
-          </div>
-          <div class="level-cost cost-api">API 调用（仅 Top 30）</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="data-layer">
-      <div class="data-layer-title">📊 支撑数据</div>
-      <div class="data-items">
-        <div class="data-item">📋 <code>taste_profile.yaml</code> 关键词 · 作者 · 偏好</div>
-        <div class="data-item">🧮 <code>corpus_embeddings.npy</code> 510 × 768 向量 (1.5MB)</div>
-        <div class="data-item">📑 <code>corpus_metadata.json</code> 论文元数据 (732KB)</div>
-        <div class="data-item">💾 <code>abstract_cache.json</code> 摘要缓存 (545KB)</div>
-        <div class="data-item">📖 <code>wiki/concepts/</code> 概念索引 → L3 Prompt</div>
-      </div>
-    </div>
+  <div class="module t-blue">
+    <div class="name">raw_ingest.py</div>
+    <div class="desc">原始数据持久化到 wiki/raw/ 层</div>
+    <span class="tag">NEW: 幂等写入</span>
   </div>
-
-  <div class="connector">
-    <div class="connector-label">
-      <div class="connector-arrow">↓</div>
-      <div class="connector-text">High 论文先经过反馈闭环（生成 Wiki 分析），再格式化消息</div>
-    </div>
+  <div class="module t-blue">
+    <div class="name">search_force_vla.py</div>
+    <div class="desc">Force-VLA 定向搜索 + 相关性过滤</div>
+    <span class="tag">NEW: 冷启动专用</span>
   </div>
+</div>
 
-  <!-- ===== 4. 反馈 & Wiki ===== -->
-  <div class="phase">
-    <div class="phase-header">
-      <div class="phase-num" style="background:linear-gradient(135deg, var(--rose), var(--orange))">4</div>
-      <div class="phase-title">反馈闭环 & Karpathy 知识库 <span class="card-phase phase-2-tag">P2</span><span class="phase-sub">· 持续学习</span></div>
-    </div>
-    <div class="feedback-section">
-      <div class="feedback-card">
-        <span class="badge badge-ready">已开发</span>
-        <div class="card-icon">🔄</div>
-        <div class="card-title">反馈闭环</div>
-        <div class="card-desc">
-          评分完成后自动触发（消息格式化前）：<br><br>
-          1. <strong>语料库更新</strong> — High 论文向量追加到 .npy<br>
-          2. <strong>品味统计</strong> — 90 天滚动 H/M/L 计数<br>
-          3. <strong>Wiki 编译</strong> — Claude 读全文，写深度分析<br><br>
-          <strong>语料库随使用增长 → L2 持续优化</strong>
-        </div>
-        <div class="card-file">feedback.py</div>
-      </div>
-      <div class="feedback-card">
-        <span class="badge badge-ready">已开发</span>
-        <div class="card-icon">📖</div>
-        <div class="card-title">Karpathy 研究知识库</div>
-        <div class="card-desc">
-          <strong>Raw → LLM 编译 → Wiki → Q&A → 回填</strong><br><br>
-          1. <strong>论文深度分析</strong> — 基于全文（非摘要）<br>
-          2. <strong>概念自动提取</strong> — Claude 识别核心概念<br>
-          3. <strong>概念综述页</strong> — 增量更新，交叉引用<br>
-          4. <strong>Obsidian 双向链接</strong> — [[wikilinks]] 格式<br>
-          5. <strong>概念密度 → L3</strong> — 回馈到品味评分<br><br>
-          <strong>知识以复合利率增长。</strong>
-        </div>
-        <div class="card-file">wiki_compiler.py</div>
-      </div>
-      <div class="feedback-card">
-        <span class="badge badge-ready">已开发</span>
-        <div class="card-icon">💡</div>
-        <div class="card-title">研究对话 & Ideas</div>
-        <div class="card-desc">
-          <strong>/research</strong> 技能（Claude Code）：<br><br>
-          1. 搜索 Wiki 已有知识<br>
-          2. 联网搜索 arXiv + S2<br>
-          3. 与用户讨论方向<br>
-          4. 回写 <code>ideas/</code> 目录<br>
-          5. 更新/创建概念页<br><br>
-          <strong>对话即知识积累。</strong>
-        </div>
-        <div class="card-file">/research skill</div>
-      </div>
-    </div>
+<div class="arrow-down">↓</div>
+<div class="arrow-label">候选论文 → 三级品味漏斗</div>
 
-    <!-- Wiki Directory Structure -->
-    <div class="wiki-tree">
-      <div class="wiki-tree-title">🗂️ Wiki 知识库结构 <span style="font-size:0.7rem;color:var(--text-dim)">· Obsidian Vault</span></div>
-      <div class="wiki-dir">
-        <span class="dir">data/wiki/</span><br>
-        ├── <span class="dir">papers/</span> <span class="count">(1 篇深度分析)</span> — Claude 基于全文撰写的中文分析<br>
-        ├── <span class="dir">concepts/</span> <span class="count">(1 个概念页)</span> — 跨论文综述，增量更新<br>
-        ├── <span class="dir">ideas/</span> <span class="count">(0 个想法)</span> — /research 对话记录<br>
-        └── <span class="dir">.obsidian/</span> — Vault 配置
-      </div>
-    </div>
+<!-- ============================================================ -->
+<!-- 2. TASTE ENGINE (3-Level Funnel) -->
+<!-- ============================================================ -->
 
-    <!-- Karpathy Loop Diagram -->
-    <div class="loop-container">
-      <div class="loop-title">🔁 Karpathy 知识复合循环</div>
-      <div class="loop-steps">
-        <div class="loop-step"><strong>Raw</strong>论文全文<br>(HTML/PDF)</div>
-        <div class="loop-arrow">→</div>
-        <div class="loop-step"><strong>LLM 编译</strong>Claude 分析<br>提取概念</div>
-        <div class="loop-arrow">→</div>
-        <div class="loop-step"><strong>Wiki</strong>papers/ +<br>concepts/</div>
-        <div class="loop-arrow">→</div>
-        <div class="loop-step"><strong>Q&A</strong>/research<br>对话探索</div>
-        <div class="loop-arrow">→</div>
-        <div class="loop-step"><strong>回填</strong>ideas/ +<br>概念更新</div>
-      </div>
-      <div class="loop-return">↩ 概念密度 + 品味信号 回馈到品味引擎 L3 评分 + 新论文触发新一轮编译</div>
-    </div>
+<div class="section-title">
+  <span class="num" style="background:var(--purple)">2</span>
+  品味引擎 — 三级推荐漏斗 <code style="font-family:'JetBrains Mono';font-size:0.8rem;background:var(--surface2);padding:2px 8px;border-radius:4px;color:var(--purple);margin-left:8px">taste_engine.py</code>
+</div>
+
+<div class="pipeline">
+  <div class="pipeline-stage" style="border-color:var(--green)">
+    <div class="stage-num" style="color:var(--green)">Level 1</div>
+    <div class="stage-title">Hard Rules</div>
+    <div class="stage-desc">关键词匹配 + 作者白名单 + 负面词过滤</div>
+    <div class="stage-cost" style="background:rgba(74,222,128,0.15);color:var(--green)">零成本</div>
   </div>
+  <div class="pipeline-arrow">→</div>
+  <div class="pipeline-stage" style="border-color:var(--amber)">
+    <div class="stage-num" style="color:var(--amber)">Level 2</div>
+    <div class="stage-title">Embedding Rank</div>
+    <div class="stage-desc">Jina 本地嵌入 + 余弦相似度 + 时间衰减加权</div>
+    <div class="stage-cost" style="background:rgba(251,191,36,0.15);color:var(--amber)">本地推理</div>
+  </div>
+  <div class="pipeline-arrow">→</div>
+  <div class="pipeline-stage" style="border-color:var(--rose)">
+    <div class="stage-num" style="color:var(--rose)">Level 3</div>
+    <div class="stage-title">LLM Taste Score</div>
+    <div class="stage-desc">Claude 评估相关性 → High / Medium / Low + 中文理由</div>
+    <div class="stage-cost" style="background:rgba(251,113,133,0.15);color:var(--rose)">Claude API</div>
+  </div>
+</div>
 
-  <div class="connector"><div class="connector-arrow">↓</div></div>
+<div style="display:flex;gap:16px;margin-top:16px">
+  <div class="module t-purple" style="flex:1">
+    <div class="name">embedding_store.py</div>
+    <div class="desc">jina-embeddings-v5-text-nano (768d) · 语料库管理 · 时间衰减公式</div>
+    <span class="tag">本地模型</span>
+  </div>
+  <div class="module t-cyan" style="flex:1">
+    <div class="name">config.py</div>
+    <div class="desc">统一配置加载：taste_profile.yaml · config.yaml · categories.yaml</div>
+    <span class="tag">全局依赖</span>
+  </div>
+</div>
 
-  <!-- ===== 5. 输出层 ===== -->
-  <div class="phase">
-    <div class="phase-header">
-      <div class="phase-num" style="background:linear-gradient(135deg, var(--green), var(--lime))">5</div>
-      <div class="phase-title">输出层<span class="phase-sub">· 多通道推送</span></div>
-    </div>
-    <div class="output-grid">
-      <div class="output-card out-feishu">
-        <span class="badge badge-live">已上线</span>
-        <div class="output-icon">💬</div>
-        <div class="output-name">飞书推送</div>
-        <div class="output-detail">
-          每日中文推荐卡片<br>
-          ⭐ High: 含 📖 深度解读<br>
-          📎 Medium: 一句话摘要<br>
-          <span style="font-size:0.62rem; color:var(--purple)">P2: 附 Wiki 分析</span>
+<div class="arrow-down">↓</div>
+<div class="arrow-label">ScoredPaper[] (High/Medium/Low) → 反馈环 + 输出</div>
+
+<!-- ============================================================ -->
+<!-- 3. KNOWLEDGE BASE (Wiki) -->
+<!-- ============================================================ -->
+
+<div class="section-title">
+  <span class="num" style="background:var(--green)">3</span>
+  知识库层 — Karpathy LLM 知识库方法
+</div>
+
+<div class="card" style="border-color:rgba(74,222,128,0.3)">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+
+    <!-- Left: Compilation Pipeline -->
+    <div>
+      <div style="font-weight:600;margin-bottom:12px;color:var(--green)">编译管线（V2 两步法）</div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="module t-blue">
+          <div class="name">raw_ingest.py</div>
+          <div class="desc">arXiv meta + fulltext + repo README → wiki/raw/papers/{id}/</div>
+          <span class="tag">网络 I/O · 幂等</span>
+        </div>
+
+        <div style="text-align:center;color:var(--text-dim)">↓</div>
+
+        <div class="module t-green">
+          <div class="name">wiki_compiler.py — Step 1</div>
+          <div class="desc">LLM 深度分析论文 → 中文分析页 + 概念分类 + frontmatter</div>
+          <span class="tag">Claude 调用 #1</span>
+        </div>
+
+        <div style="text-align:center;color:var(--text-dim)">↓</div>
+
+        <div class="module t-green">
+          <div class="name">wiki_compiler.py — Step 2</div>
+          <div class="desc">LLM 读 Step1 + 已有概念页 → 批量生成/更新概念页</div>
+          <span class="tag">Claude 调用 #2</span>
+        </div>
+
+        <div style="text-align:center;color:var(--text-dim)">↓</div>
+
+        <div class="module t-teal">
+          <div class="name">index_builder.py</div>
+          <div class="desc">重建 INDEX.md · papers/INDEX.md · concepts/INDEX.md · TOPIC-MAP.md</div>
+          <span class="tag">NEW: 纯模板</span>
         </div>
       </div>
-      <div class="output-card out-readme">
-        <span class="badge badge-live">已上线</span>
-        <div class="output-icon">📝</div>
-        <div class="output-name">README.md</div>
-        <div class="output-detail">Awesome List 自动写入<br>按日期降序排列</div>
+    </div>
+
+    <!-- Right: Wiki Structure -->
+    <div>
+      <div style="font-weight:600;margin-bottom:12px;color:var(--green)">Wiki 目录结构（Obsidian Vault）</div>
+
+      <div class="tree">
+        <span class="dir">wiki/</span><br>
+        ├── <span class="file">INDEX.md</span> <span class="comment">← 全局入口 + 统计</span><br>
+        ├── <span class="file">TOPIC-MAP.md</span> <span class="comment">← 研究主题层次</span><br>
+        ├── <span class="dir">papers/</span><br>
+        │&nbsp;&nbsp; ├── <span class="file">INDEX.md</span> <span class="comment">← 按年分组</span><br>
+        │&nbsp;&nbsp; └── <span class="file">{arxiv_id}.md</span> <span class="comment">← 中文深度分析</span><br>
+        ├── <span class="dir">concepts/</span><br>
+        │&nbsp;&nbsp; ├── <span class="file">INDEX.md</span> <span class="comment">← 字母排序</span><br>
+        │&nbsp;&nbsp; └── <span class="file">{slug}.md</span> <span class="comment">← 跨论文概念综合</span><br>
+        └── <span class="dir">raw/</span> <span class="comment">← 不可变原始层</span><br>
+        &nbsp;&nbsp;&nbsp; └── <span class="dir">papers/{arxiv_id}/</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├── <span class="file">meta.yaml</span> <span class="comment">← 结构化元数据</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ├── <span class="file">fulltext.md</span> <span class="comment">← 论文全文</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; └── <span class="file">repo-readme.md</span> <span class="comment">← GitHub README</span>
       </div>
-      <div class="output-card out-zotero">
-        <span class="badge badge-live">已上线</span>
-        <div class="output-icon">📚</div>
-        <div class="output-name">Zotero</div>
-        <div class="output-detail">文献管理器<br>按分类收集</div>
+
+      <div style="margin-top:16px;font-size:0.8rem;color:var(--text-dim);line-height:1.6">
+        <strong style="color:var(--green)">核心思想：</strong>LLM 是无状态的 → Wiki 是 LLM 的外部大脑。<br>
+        每次 Q&A 对话从 INDEX.md 出发导航 wiki，获取上下文后回答。<br>
+        Obsidian Graph View 显示论文-概念的知识图谱连接。
       </div>
-      <div class="output-card out-notion">
-        <span class="badge badge-live">已上线</span>
-        <div class="output-icon">📓</div>
-        <div class="output-name">Notion</div>
-        <div class="output-detail">数据库 + 中文方法摘要<br>详细记录每篇论文</div>
-      </div>
-      <div class="output-card" style="overflow:hidden; position:relative;">
-        <span class="badge badge-ready">已开发</span>
-        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg, #8b5cf6, #14b8a6)"></div>
-        <div class="output-icon">📖</div>
-        <div class="output-name">Obsidian Wiki</div>
-        <div class="output-detail">
-          知识库可视化<br>
-          双向链接 · 概念图谱<br>
-          <span style="font-size:0.62rem; color:var(--purple)">P2 新增</span>
-        </div>
-      </div>
-      <div class="output-card out-cloud">
-        <span class="badge badge-ready">已开发</span>
-        <div class="output-icon">🖼️</div>
-        <div class="output-name">词云图</div>
-        <div class="output-detail">标题可视化<br>generate_wordcloud.py</div>
-      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="arrow-down">↓ ↑</div>
+<div class="arrow-label">复合循环: 论文 → wiki → Q&A → 洞见回填 → 丰富未来编译</div>
+
+<!-- ============================================================ -->
+<!-- 4. FEEDBACK LOOP -->
+<!-- ============================================================ -->
+
+<div class="section-title">
+  <span class="num" style="background:var(--rose)">4</span>
+  反馈环 — 系统自我增强
+</div>
+
+<div class="card" style="border-color:rgba(251,113,133,0.3)">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+    <div class="module t-rose">
+      <div class="name">update_corpus()</div>
+      <div class="desc">High 论文追加到 embedding 语料库 → L2 排序越来越准</div>
+      <span class="tag">增量学习</span>
+    </div>
+    <div class="module t-rose">
+      <div class="name">update_taste_stats()</div>
+      <div class="desc">滚动 90 天评分历史 → 品味漂移追踪</div>
+      <span class="tag">统计追踪</span>
+    </div>
+    <div class="module t-rose">
+      <div class="name">compile_wiki_for_scored()</div>
+      <div class="desc">High 论文 → raw ingest → V2 编译 → wiki 扩展</div>
+      <span class="tag">NEW: V2 管线</span>
+    </div>
+  </div>
+  <div style="margin-top:16px;text-align:center;font-size:0.8rem;color:var(--text-dim)">
+    <code style="font-family:'JetBrains Mono';color:var(--rose)">feedback.py</code> — 每日评分后自动执行三步反馈
+  </div>
+</div>
+
+<div class="arrow-down">↓</div>
+
+<!-- ============================================================ -->
+<!-- 5. OUTPUT CHANNELS -->
+<!-- ============================================================ -->
+
+<div class="section-title">
+  <span class="num" style="background:var(--amber)">5</span>
+  输出层 — 多渠道分发
+</div>
+
+<div class="flow-grid flow-4col">
+  <div class="module t-amber">
+    <div class="name">飞书推送</div>
+    <div class="desc">每日中文推荐消息 + wiki 分析摘要（High 论文附深度分析）</div>
+    <span class="tag">daily_pipeline.py</span>
+  </div>
+  <div class="module t-orange">
+    <div class="name">Notion 数据库</div>
+    <div class="desc">结构化论文条目写入 Notion DB</div>
+    <span class="tag">notion_client.py</span>
+  </div>
+  <div class="module t-pink">
+    <div class="name">Zotero 文献库</div>
+    <div class="desc">论文同步到 Zotero 个人文献管理</div>
+    <span class="tag">zotero_client.py</span>
+  </div>
+  <div class="module t-teal">
+    <div class="name">README.md + Git</div>
+    <div class="desc">awesome-list 自动更新 + git commit</div>
+    <span class="tag">git_writer.py</span>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 6. ORCHESTRATORS -->
+<!-- ============================================================ -->
+
+<div class="section-title">
+  <span class="num" style="background:var(--indigo)">6</span>
+  编排层 — 两个入口
+</div>
+
+<div class="flow-grid flow-2col">
+  <div class="card" style="border-color:rgba(129,140,248,0.3)">
+    <div style="font-weight:600;color:var(--indigo);margin-bottom:12px;font-size:1rem">
+      daily_pipeline.py — 每日自动
+    </div>
+    <div style="font-size:0.85rem;color:var(--text-dim);line-height:1.8">
+      <span style="color:var(--blue)">1.</span> 多源搜索 (arXiv + S2 + RSS) → 候选池<br>
+      <span style="color:var(--blue)">2.</span> 去重 (seen_papers.json)<br>
+      <span style="color:var(--purple)">3.</span> 三级漏斗 → ScoredPaper[]<br>
+      <span style="color:var(--rose)">4.</span> 反馈环 (corpus + stats + wiki)<br>
+      <span style="color:var(--amber)">5.</span> 飞书推送 + Notion/Zotero/Git 同步
+    </div>
+    <div style="margin-top:12px">
+      <code style="font-family:'JetBrains Mono';font-size:0.8rem;color:var(--indigo);background:var(--surface2);padding:4px 10px;border-radius:6px">
+        python3 -m scripts.daily_pipeline
+      </code>
     </div>
   </div>
 
-  <!-- ===== 手动触发层 ===== -->
-  <div class="section-label">交互式触发（Claude Code Skills）</div>
-
-  <div class="flow-row">
-    <div class="card">
-      <div class="card-accent" style="background:linear-gradient(90deg, var(--amber), var(--orange))"></div>
-      <span class="badge badge-manual">手动</span>
-      <div class="card-icon">📌</div>
-      <div class="card-title">/collect-paper</div>
-      <div class="card-desc">对话中发现好论文 → 一键收集至 Zotero + Notion + Git → 触发反馈闭环（语料库 + Wiki 编译）。</div>
-      <div class="card-file">~/.claude/skills/collect-paper/</div>
+  <div class="card" style="border-color:rgba(129,140,248,0.3)">
+    <div style="font-weight:600;color:var(--indigo);margin-bottom:12px;font-size:1rem">
+      cold_start_force_vla.py — 批量冷启动
     </div>
-    <div class="card">
-      <div class="card-accent" style="background:linear-gradient(90deg, var(--purple), var(--pink))"></div>
-      <span class="badge badge-ready">已开发</span>
-      <div class="card-icon">🧪</div>
-      <div class="card-title">/research <span class="card-phase phase-2-tag">P2</span></div>
-      <div class="card-desc">探索研究想法：搜索 Wiki 上下文 → 联网检索最新论文 → 与用户讨论 → 回写 ideas/ + 概念更新。</div>
-      <div class="card-file">~/.claude/skills/research/</div>
+    <div style="font-size:0.85rem;color:var(--text-dim);line-height:1.8">
+      <span style="color:var(--blue)">1.</span> 搜索真实论文 (search_force_vla.py)<br>
+      <span style="color:var(--blue)">2.</span> 批量 ingest → wiki/raw/ (网络 I/O)<br>
+      <span style="color:var(--green)">3.</span> 批量 V2 compile → wiki/papers + concepts (LLM)<br>
+      <span style="color:var(--teal)">4.</span> 重建全部索引
+    </div>
+    <div style="margin-top:12px">
+      <code style="font-family:'JetBrains Mono';font-size:0.8rem;color:var(--indigo);background:var(--surface2);padding:4px 10px;border-radius:6px">
+        python3 -m scripts.cold_start_force_vla --batch 5
+      </code>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 7. END-TO-END DATA FLOW -->
+<!-- ============================================================ -->
+
+<div class="section-title">
+  <span class="num" style="background:var(--cyan)">7</span>
+  端到端数据流
+</div>
+
+<div class="dataflow">
+
+  <!-- Row 1: Sources -->
+  <div class="dataflow-row">
+    <div class="df-box" style="background:rgba(91,141,239,0.1);border-color:var(--blue);color:var(--blue)">arXiv API</div>
+    <div class="df-box" style="background:rgba(91,141,239,0.1);border-color:var(--blue);color:var(--blue)">Semantic Scholar</div>
+    <div class="df-box" style="background:rgba(91,141,239,0.1);border-color:var(--blue);color:var(--blue)">RSS Feeds</div>
+    <div class="df-box" style="background:rgba(91,141,239,0.1);border-color:var(--blue);color:var(--blue)">GitHub README</div>
+  </div>
+
+  <div class="df-arrow-down">↓</div>
+
+  <!-- Row 2: Candidates -->
+  <div class="dataflow-row">
+    <div class="df-box" style="background:rgba(167,139,250,0.1);border-color:var(--purple);color:var(--purple);min-width:300px">
+      候选论文池 (去重后)<br>
+      <span style="font-size:0.7rem;color:var(--text-dim)">~100-200 papers/day</span>
     </div>
   </div>
 
-  <!-- ===== Pipeline 执行顺序 ===== -->
-  <div class="section-label">每日管线执行顺序（daily_pipeline.py）</div>
+  <div class="df-arrow-down">↓</div>
 
-  <div class="pipeline-order">
-    <div class="pipeline-order-title">🔧 run_daily_pipeline() 执行流程</div>
-    <div class="pipeline-steps">
-      <div class="pipeline-step">📡 采集候选</div>
-      <div class="pipeline-sep">→</div>
-      <div class="pipeline-step">🧹 去重</div>
-      <div class="pipeline-sep">→</div>
-      <div class="pipeline-step" style="background:#dcfce7">🎯 L1 硬规则</div>
-      <div class="pipeline-sep">→</div>
-      <div class="pipeline-step" style="background:#cffafe">🧮 L2 嵌入排序</div>
-      <div class="pipeline-sep">→</div>
-      <div class="pipeline-step" style="background:#ffedd5">🤖 L3 LLM 评分</div>
-      <div class="pipeline-sep">→</div>
-      <div class="pipeline-step" style="background:#fce7f3">🔄 反馈闭环</div>
-      <div class="pipeline-sep">→</div>
-      <div class="pipeline-step" style="background:#fce7f3">📖 Wiki 编译</div>
-      <div class="pipeline-sep">→</div>
-      <div class="pipeline-step" style="background:#dbeafe">💬 格式化消息</div>
-      <div class="pipeline-sep">→</div>
-      <div class="pipeline-step">💾 更新 seen</div>
+  <!-- Row 3: Funnel -->
+  <div class="dataflow-row">
+    <div class="df-box" style="background:rgba(74,222,128,0.1);border-color:var(--green);color:var(--green)">
+      L1: Hard Rules<br><span style="font-size:0.7rem;color:var(--text-dim)">~40% pass</span>
     </div>
-    <div style="font-size:0.68rem; color:var(--text-dim); margin-top:0.6rem; text-align:center;">
-      反馈 & Wiki 在消息格式化之前运行 → High 论文的深度解读可以包含在飞书推送中
+    <div class="df-arrow">→</div>
+    <div class="df-box" style="background:rgba(251,191,36,0.1);border-color:var(--amber);color:var(--amber)">
+      L2: Embedding<br><span style="font-size:0.7rem;color:var(--text-dim)">Top 30</span>
+    </div>
+    <div class="df-arrow">→</div>
+    <div class="df-box" style="background:rgba(251,113,133,0.1);border-color:var(--rose);color:var(--rose)">
+      L3: Claude LLM<br><span style="font-size:0.7rem;color:var(--text-dim)">High / Med / Low</span>
     </div>
   </div>
 
-  <!-- ===== 调度 ===== -->
-  <div class="section-label">调度与编排</div>
+  <div class="df-arrow-down">↓</div>
 
-  <div class="flow-row">
-    <div class="card">
-      <div class="card-accent" style="background:linear-gradient(90deg, var(--green), var(--emerald))"></div>
-      <span class="badge badge-live">已上线</span>
-      <div class="card-icon">⏰</div>
-      <div class="card-title">Cron 定时任务 <span class="card-phase phase-1-tag">P1</span></div>
-      <div class="card-desc">每日执行 daily_search.sh → Pipeline (25 分钟超时) → 飞书推送 → git commit & push。日志写入 <code>logs/</code>。</div>
-      <div class="card-file">daily_search.sh</div>
+  <!-- Row 4: Split -->
+  <div class="dataflow-row" style="gap:32px">
+    <div style="text-align:center">
+      <div class="df-box" style="background:rgba(74,222,128,0.15);border-color:var(--green);color:var(--green)">
+        High 论文
+      </div>
+      <div class="df-note">→ wiki 编译 + corpus 追加</div>
     </div>
-    <div class="card">
-      <div class="card-accent" style="background:linear-gradient(90deg, var(--indigo), var(--purple))"></div>
-      <span class="badge badge-ready">已开发</span>
-      <div class="card-icon">🎛️</div>
-      <div class="card-title">Python 编排器 <span class="card-phase phase-2-tag">P2</span></div>
-      <div class="card-desc">采集 → 去重 → 三级漏斗 → 反馈闭环 → Wiki 编译 → 格式化消息 → 更新 seen。返回统计数据。</div>
-      <div class="card-file">daily_pipeline.py</div>
+    <div style="text-align:center">
+      <div class="df-box" style="background:rgba(251,191,36,0.1);border-color:var(--amber);color:var(--amber)">
+        Medium 论文
+      </div>
+      <div class="df-note">→ 飞书推送 (无 wiki)</div>
     </div>
-    <div class="card">
-      <div class="card-accent" style="background:linear-gradient(90deg, var(--amber), var(--orange))"></div>
-      <span class="badge badge-manual">手动</span>
-      <div class="card-icon">🌱</div>
-      <div class="card-title">冷启动 Bootstrap</div>
-      <div class="card-desc">一次性执行：解析 Awesome List → 抓取摘要（3 秒限速）→ 生成嵌入向量。支持断点续传。</div>
-      <div class="card-file">bootstrap_embeddings.py</div>
+    <div style="text-align:center">
+      <div class="df-box" style="background:rgba(139,145,176,0.1);border-color:var(--text-dim);color:var(--text-dim)">
+        Low 论文
+      </div>
+      <div class="df-note">→ 记录到 seen, 不推送</div>
     </div>
   </div>
 
-  <!-- ===== 技术栈 ===== -->
-  <div class="section-label">技术栈</div>
+  <div class="df-arrow-down">↓</div>
 
-  <div class="tech-grid">
-    <div class="tech-pill">🐍 Python 3.13</div>
-    <div class="tech-pill">🤖 Claude CLI</div>
-    <div class="tech-pill">🔤 jina-embeddings-v5-text-nano</div>
-    <div class="tech-pill">🧪 pytest · 135 tests</div>
-    <div class="tech-pill">📦 conda: paper-rec</div>
-    <div class="tech-pill">🔥 PyTorch + CUDA</div>
-    <div class="tech-pill">📡 arXiv + S2 API</div>
-    <div class="tech-pill">💬 飞书 MCP</div>
-    <div class="tech-pill">📚 Zotero API</div>
-    <div class="tech-pill">📓 Notion API</div>
-    <div class="tech-pill">📄 trafilatura (HTML)</div>
-    <div class="tech-pill">📄 pymupdf (PDF)</div>
-    <div class="tech-pill">🔗 Obsidian (Wiki)</div>
+  <!-- Row 5: Wiki compilation -->
+  <div class="dataflow-row">
+    <div class="df-box" style="background:rgba(91,141,239,0.1);border-color:var(--blue);color:var(--blue)">
+      raw ingest<br><span style="font-size:0.7rem">meta.yaml + fulltext</span>
+    </div>
+    <div class="df-arrow">→</div>
+    <div class="df-box" style="background:rgba(74,222,128,0.1);border-color:var(--green);color:var(--green)">
+      Step 1: 论文分析<br><span style="font-size:0.7rem">Claude 调用 #1</span>
+    </div>
+    <div class="df-arrow">→</div>
+    <div class="df-box" style="background:rgba(74,222,128,0.1);border-color:var(--green);color:var(--green)">
+      Step 2: 概念整合<br><span style="font-size:0.7rem">Claude 调用 #2</span>
+    </div>
+    <div class="df-arrow">→</div>
+    <div class="df-box" style="background:rgba(45,212,191,0.1);border-color:var(--teal);color:var(--teal)">
+      索引重建<br><span style="font-size:0.7rem">4 个 INDEX 文件</span>
+    </div>
   </div>
 
-  <!-- ===== 模块清单 ===== -->
-  <div class="section-label">完整模块清单（16 个 Python 模块 + 13 个测试文件）</div>
+  <div class="df-arrow-down">↓</div>
 
-  <div class="data-layer" style="margin-top:0;">
-    <div class="data-layer-title">🗂️ scripts/</div>
-    <div class="data-items">
-      <div class="data-item"><code>daily_pipeline.py</code> 管线编排 <span class="card-phase phase-2-tag">P2</span></div>
-      <div class="data-item"><code>taste_engine.py</code> 三级漏斗 <span class="card-phase phase-2-tag">P2</span></div>
-      <div class="data-item"><code>embedding_store.py</code> 向量存储 <span class="card-phase phase-2-tag">P2</span></div>
-      <div class="data-item"><code>wiki_compiler.py</code> Wiki 编译 <span class="card-phase phase-2-tag">P2</span></div>
-      <div class="data-item"><code>feedback.py</code> 反馈闭环 <span class="card-phase phase-2-tag">P2</span></div>
-      <div class="data-item"><code>fetch_paper.py</code> 元数据 + 全文 <span class="card-phase phase-1-tag">P1</span>+<span class="card-phase phase-2-tag">P2</span></div>
-      <div class="data-item"><code>search_papers.py</code> 搜索 <span class="card-phase phase-1-tag">P1</span></div>
-      <div class="data-item"><code>rss_fetcher.py</code> RSS <span class="card-phase phase-1-tag">P1</span></div>
-      <div class="data-item"><code>config.py</code> 配置 <span class="card-phase phase-1-tag">P1</span></div>
-      <div class="data-item"><code>git_writer.py</code> Git <span class="card-phase phase-1-tag">P1</span></div>
-      <div class="data-item"><code>zotero_client.py</code> Zotero <span class="card-phase phase-1-tag">P1</span></div>
-      <div class="data-item"><code>notion_client.py</code> Notion <span class="card-phase phase-1-tag">P1</span></div>
-      <div class="data-item"><code>bootstrap_embeddings.py</code> 冷启动 <span class="card-phase phase-2-tag">P2</span></div>
-      <div class="data-item"><code>profile_bootstrap.py</code> 品味冷启动 <span class="card-phase phase-1-tag">P1</span></div>
-      <div class="data-item"><code>source_discovery.py</code> 源发现 <span class="card-phase phase-2-tag">P2</span></div>
-      <div class="data-item"><code>generate_wordcloud.py</code> 词云 <span class="card-phase phase-1-tag">P1</span></div>
-    </div>
+  <!-- Row 6: Outputs -->
+  <div class="dataflow-row">
+    <div class="df-box" style="background:rgba(251,191,36,0.1);border-color:var(--amber);color:var(--amber)">飞书</div>
+    <div class="df-box" style="background:rgba(249,115,22,0.1);border-color:var(--orange);color:var(--orange)">Notion</div>
+    <div class="df-box" style="background:rgba(244,114,182,0.1);border-color:var(--pink);color:var(--pink)">Zotero</div>
+    <div class="df-box" style="background:rgba(45,212,191,0.1);border-color:var(--teal);color:var(--teal)">README + Git</div>
+    <div class="df-box" style="background:rgba(74,222,128,0.1);border-color:var(--green);color:var(--green)">Wiki (Obsidian)</div>
   </div>
 
 </div>
 
+<!-- ============================================================ -->
+<!-- 8. Q&A INTERACTION -->
+<!-- ============================================================ -->
+
+<div class="section-title">
+  <span class="num" style="background:var(--teal)">8</span>
+  三种交互模式
+</div>
+
+<div class="flow-grid flow-3col">
+  <div class="card" style="border-color:rgba(45,212,191,0.3)">
+    <div style="font-weight:600;color:var(--teal);margin-bottom:8px">自动管线</div>
+    <div style="font-size:0.85rem;color:var(--text-dim);line-height:1.6">
+      cron 每日触发 daily_pipeline → 搜索 → 评分 → 编译 wiki → 飞书推送<br>
+      <strong style="color:var(--text)">用户无需操作</strong>
+    </div>
+  </div>
+
+  <div class="card" style="border-color:rgba(45,212,191,0.3)">
+    <div style="font-weight:600;color:var(--teal);margin-bottom:8px">手动 Ingest</div>
+    <div style="font-size:0.85rem;color:var(--text-dim);line-height:1.6">
+      用户发现好论文 → 丢 arXiv ID → ingest + compile 进 wiki<br>
+      <strong style="color:var(--text)">Gary 手动触发</strong>
+    </div>
+  </div>
+
+  <div class="card" style="border-color:rgba(45,212,191,0.3)">
+    <div style="font-weight:600;color:var(--teal);margin-bottom:8px">Q&A 对话</div>
+    <div style="font-size:0.85rem;color:var(--text-dim);line-height:1.6">
+      Claude Code 中问研究问题 → 导航 wiki → 跨论文综合回答<br>
+      <strong style="color:var(--text)">知识检索 + 洞见回填</strong>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Footer -->
+<!-- ============================================================ -->
+
+<div style="margin-top:64px;padding-top:24px;border-top:1px solid var(--border);text-align:center;color:var(--text-dim);font-size:0.8rem">
+  awesome-robot-learning · Force-VLA Research Wiki · Karpathy Method · Built with Claude Code
+</div>
+
+</div>
 </body>
 </html>

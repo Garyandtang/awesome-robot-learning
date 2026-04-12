@@ -1,0 +1,217 @@
+<h2>Paper Recommendation Pipeline</h2>
+<p class="subtitle">Source → Taste → Present 全流程依赖关系</p>
+
+<div style="margin: 2rem auto; max-width: 900px;">
+
+  <!-- Source Layer -->
+  <div style="background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+      <span style="background: #3b82f6; color: white; padding: 4px 12px; border-radius: 6px; font-weight: 600; font-size: 0.85rem;">SOURCE</span>
+      <span style="color: #94a3b8; font-size: 0.85rem;">信息源管理 + 数据采集</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;">
+      <!-- arXiv/S2 -->
+      <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem;">
+        <div style="font-weight: 600; margin-bottom: 0.5rem;">arXiv + Semantic Scholar</div>
+        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5;">
+          <code style="font-size: 0.75rem;">search_papers.py</code><br>
+          依赖: <code style="font-size: 0.75rem;">config.yaml</code> (API keys)<br>
+          输入: <code style="font-size: 0.75rem;">topic.yaml</code> (keywords)<br>
+          输入: <code style="font-size: 0.75rem;">categories.yaml</code>
+        </div>
+      </div>
+
+      <!-- RSS -->
+      <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(34,197,94,0.3); border-radius: 8px; padding: 1rem;">
+        <div style="font-weight: 600; margin-bottom: 0.5rem;">RSS/Atom Feeds <span style="font-size: 0.7rem; color: #22c55e;">Phase 1 NEW</span></div>
+        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5;">
+          <code style="font-size: 0.75rem;">rss_fetcher.py</code><br>
+          依赖: <code style="font-size: 0.75rem;">feeds.yaml</code><br>
+          依赖: feedparser, trafilatura<br>
+          输出: 标准化元数据 (同论文格式)
+        </div>
+      </div>
+
+      <!-- Cold Start -->
+      <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; padding: 1rem;">
+        <div style="font-weight: 600; margin-bottom: 0.5rem;">Cold Start <span style="font-size: 0.7rem; color: #a855f7;">Phase 1 NEW</span></div>
+        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5;">
+          <code style="font-size: 0.75rem;">profile_bootstrap.py</code><br>
+          输入: awesome-humanoid-robot-learning<br>
+          输出: <code style="font-size: 0.75rem;">taste_profile.yaml</code><br>
+          输出: <code style="font-size: 0.75rem;">source_candidates.yaml</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div style="text-align: center; font-size: 1.5rem; color: #64748b; margin: 0.5rem 0;">
+    <div>&#8595; 标准化元数据 (title, authors, abstract, url, source_type...)</div>
+  </div>
+
+  <!-- Taste Layer -->
+  <div style="background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+      <span style="background: #eab308; color: black; padding: 4px 12px; border-radius: 6px; font-weight: 600; font-size: 0.85rem;">TASTE</span>
+      <span style="color: #94a3b8; font-size: 0.85rem;">品味筛选 + 推荐理由生成</span>
+    </div>
+
+    <!-- Three-level funnel -->
+    <div style="position: relative;">
+      <!-- Level 1 -->
+      <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span style="font-weight: 600;">Level 1: 硬规则过滤</span>
+            <span style="font-size: 0.75rem; color: #22c55e; margin-left: 0.5rem;">零成本</span>
+          </div>
+          <span style="font-size: 0.8rem; color: #94a3b8;">~200 → ~80</span>
+        </div>
+        <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.5rem;">
+          关键词匹配 / authors_whitelist / 排斥词 &nbsp;|&nbsp; 依赖: <code style="font-size: 0.75rem;">taste_profile.yaml</code>
+        </div>
+      </div>
+
+      <div style="text-align: center; color: #64748b;">&#8595;</div>
+
+      <!-- Level 2 -->
+      <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span style="font-weight: 600;">Level 2: 嵌入相似度排序</span>
+            <span style="font-size: 0.75rem; color: #f59e0b; margin-left: 0.5rem;">Phase 2 - 本地模型, 零 API 成本</span>
+          </div>
+          <span style="font-size: 0.8rem; color: #94a3b8;">~80 → top 30</span>
+        </div>
+        <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.5rem;">
+          SentenceTransformer 嵌入 × 时间衰减权重 &nbsp;|&nbsp; 依赖: <code style="font-size: 0.75rem;">embeddings.npy</code> + torch
+        </div>
+      </div>
+
+      <div style="text-align: center; color: #64748b;">&#8595;</div>
+
+      <!-- Level 3 -->
+      <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span style="font-weight: 600;">Level 3: LLM 品味精排</span>
+            <span style="font-size: 0.75rem; color: #ef4444; margin-left: 0.5rem;">仅 top 30, 控制成本</span>
+          </div>
+          <span style="font-size: 0.8rem; color: #94a3b8;">30 → High / Medium / Low</span>
+        </div>
+        <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.5rem;">
+          注入 taste_profile + Claude memory → 评分 + 中文推荐理由 &nbsp;|&nbsp; 依赖: Claude API (daily_search.sh)
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div style="text-align: center; font-size: 1.5rem; color: #64748b; margin: 0.5rem 0;">
+    <div>&#8595; High / Medium 论文 + 中文推荐理由</div>
+  </div>
+
+  <!-- Present Layer -->
+  <div style="background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+      <span style="background: #22c55e; color: black; padding: 4px 12px; border-radius: 6px; font-weight: 600; font-size: 0.85rem;">PRESENT</span>
+      <span style="color: #94a3b8; font-size: 0.85rem;">分发 + 存储</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;">
+      <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem; text-align: center;">
+        <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">&#128172;</div>
+        <div style="font-weight: 600;">飞书</div>
+        <div style="font-size: 0.75rem; color: #94a3b8;">中文推送<br>推荐理由<br>博客板块</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem; text-align: center;">
+        <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">&#128221;</div>
+        <div style="font-weight: 600;">Notion</div>
+        <div style="font-size: 0.75rem; color: #94a3b8;">详细中文条目<br>方法摘要<br>推荐理由字段</div>
+        <div style="font-size: 0.7rem; color: #22c55e; margin-top: 0.25rem;"><code>notion_client.py</code></div>
+      </div>
+      <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem; text-align: center;">
+        <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">&#128218;</div>
+        <div style="font-weight: 600;">Zotero</div>
+        <div style="font-size: 0.75rem; color: #94a3b8;">文献管理<br>PDF 存储</div>
+        <div style="font-size: 0.7rem; color: #64748b; margin-top: 0.25rem;"><code>zotero_client.py</code></div>
+      </div>
+      <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem; text-align: center;">
+        <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">&#128187;</div>
+        <div style="font-weight: 600;">Git</div>
+        <div style="font-size: 0.75rem; color: #94a3b8;">awesome list<br>README.md</div>
+        <div style="font-size: 0.7rem; color: #64748b; margin-top: 0.25rem;"><code>git_writer.py</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback Loop -->
+  <div style="background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.25); border-radius: 12px; padding: 1.5rem; margin-top: 1.5rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+      <span style="background: #a855f7; color: white; padding: 4px 12px; border-radius: 6px; font-weight: 600; font-size: 0.85rem;">FEEDBACK LOOP</span>
+      <span style="color: #94a3b8; font-size: 0.85rem;">品味学习闭环 (Phase 2)</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;">
+      <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem;">
+        <div style="font-weight: 600; margin-bottom: 0.25rem;">对话隐式信号</div>
+        <div style="font-size: 0.8rem; color: #94a3b8;">
+          "关注这个作者" → authors_whitelist<br>
+          "喜欢实机实验" → Claude memory<br>
+          "这篇太水" → 排斥特征
+        </div>
+      </div>
+      <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem;">
+        <div style="font-weight: 600; margin-bottom: 0.25rem;">/collect-paper 行为</div>
+        <div style="font-size: 0.8rem; color: #94a3b8;">
+          收集 = 正向信号<br>
+          更新 taste_profile.yaml<br>
+          更新 embeddings.npy
+        </div>
+      </div>
+      <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 1rem;">
+        <div style="font-weight: 600; margin-bottom: 0.25rem;">月度源发现</div>
+        <div style="font-size: 0.8rem; color: #94a3b8;">
+          <code style="font-size: 0.75rem;">source_discovery.py</code><br>
+          作者反查 + topic 搜索<br>
+          → source_candidates.yaml<br>
+          → 审核后加入 feeds.yaml
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 0.75rem; font-size: 0.8rem; color: #a855f7;">
+      &#8593; 回流至 taste_profile.yaml / feeds.yaml / Claude memory &#8593;
+    </div>
+  </div>
+
+  <!-- External Dependencies -->
+  <div style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem;">
+    <h3 style="margin-bottom: 1rem;">外部依赖</h3>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; font-size: 0.8rem;">
+      <div style="padding: 0.75rem; background: rgba(255,255,255,0.04); border-radius: 6px; text-align: center;">
+        <div style="font-weight: 600;">config.yaml</div>
+        <div style="color: #94a3b8;">~/.config/paper-collector/</div>
+        <div style="color: #64748b; font-size: 0.7rem;">API keys, paths</div>
+      </div>
+      <div style="padding: 0.75rem; background: rgba(255,255,255,0.04); border-radius: 6px; text-align: center;">
+        <div style="font-weight: 600;">topic.yaml</div>
+        <div style="color: #94a3b8;">research_idea/*/</div>
+        <div style="color: #64748b; font-size: 0.7rem;">keywords, categories</div>
+      </div>
+      <div style="padding: 0.75rem; background: rgba(255,255,255,0.04); border-radius: 6px; text-align: center;">
+        <div style="font-weight: 600;">Claude CLI</div>
+        <div style="color: #94a3b8;">claude --print</div>
+        <div style="color: #64748b; font-size: 0.7rem;">daily_search.sh 的执行引擎</div>
+      </div>
+      <div style="padding: 0.75rem; background: rgba(255,255,255,0.04); border-radius: 6px; text-align: center;">
+        <div style="font-weight: 600;">Cron</div>
+        <div style="color: #94a3b8;">每日触发</div>
+        <div style="color: #64748b; font-size: 0.7rem;">daily_search.sh</div>
+      </div>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,166 @@
+<h2>Phase 2 Redesign: Karpathy Method + Embedding Engine</h2>
+<p class="subtitle">对比原计划 vs 真正体现 Karpathy 方法的设计</p>
+
+<div style="margin: 2rem auto; max-width: 950px;">
+
+  <!-- Problem Statement -->
+  <div style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 0.75rem; color: #ef4444;">原计划的问题</h3>
+    <div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.7;">
+      wiki_compiler.py 只做了 <b>bigram 提取 + 模板填充</b>，本质上是一个 "metadata 重新排列器"，不是 Knowledge Base。<br>
+      Karpathy 的核心是 <b>LLM 作为编译器</b>——读 raw data，理解内容，撰写有深度的概念文章。
+    </div>
+  </div>
+
+  <!-- Two Pillars -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+
+    <!-- Pillar 1: Transformer Embedding -->
+    <div style="background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.25); border-radius: 12px; padding: 1.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+        <span style="background: #3b82f6; color: white; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">PILLAR 1</span>
+        <span style="font-weight: 600;">SentenceTransformer 嵌入引擎</span>
+      </div>
+
+      <div style="font-size: 0.85rem; color: #94a3b8; line-height: 1.7; margin-bottom: 1rem;">
+        <b>模型:</b> jina-embeddings-v5-text-nano<br>
+        <b>参数:</b> ~33M，~130MB 下载<br>
+        <b>维度:</b> 768d embeddings<br>
+        <b>推理:</b> CPU, ~5s/30 篇<br>
+        <b>成本:</b> 零（本地）
+      </div>
+
+      <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 0.75rem; font-size: 0.8rem; color: #cbd5e1;">
+        <b>在 pipeline 中的位置:</b><br><br>
+        Level 2 漏斗：<br>
+        &nbsp;&nbsp;510 正样本论文 → embeddings.npy (768d)<br>
+        &nbsp;&nbsp;新候选论文 → 实时编码<br>
+        &nbsp;&nbsp;余弦相似度 × 时间衰减权重<br>
+        &nbsp;&nbsp;→ Top 30 进入 LLM 精排<br><br>
+        <span style="color: #3b82f6;">这部分原计划设计是合理的，保留。</span>
+      </div>
+    </div>
+
+    <!-- Pillar 2: LLM-Compiled Wiki -->
+    <div style="background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.25); border-radius: 12px; padding: 1.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+        <span style="background: #a855f7; color: white; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">PILLAR 2</span>
+        <span style="font-weight: 600;">LLM 编译的 Research Wiki</span>
+      </div>
+
+      <div style="font-size: 0.85rem; color: #94a3b8; line-height: 1.7; margin-bottom: 1rem;">
+        <b>编译器:</b> Claude (claude --print)<br>
+        <b>触发:</b> /collect-paper 时增量编译<br>
+        <b>格式:</b> Obsidian .md + [[wikilinks]]<br>
+        <b>成本:</b> 每篇 ~2K tokens
+      </div>
+
+      <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 0.75rem; font-size: 0.8rem; color: #cbd5e1;">
+        <b>Karpathy 方法的真正实现:</b><br><br>
+        1. <b>LLM 概念提取</b> — 不是 bigram，而是 LLM 理解论文后提取核心概念<br><br>
+        2. <b>LLM 撰写概念文章</b> — "什么是 Diffusion Policy？" 不是模板，是 LLM 综合多篇论文写的<br><br>
+        3. <b>LLM 发现联系</b> — "这篇和你之前收集的 X 有什么关系？"<br><br>
+        4. <b>增量更新</b> — 新论文加入时，更新相关概念文章，不是重建<br><br>
+        <span style="color: #a855f7;">这是原计划严重缺失的部分。</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Redesigned Wiki Compilation Flow -->
+  <div style="background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 1rem;">Wiki 编译流程（重新设计）</h3>
+
+    <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; font-size: 0.85rem; align-items: start;">
+
+      <div style="background: #eab308; color: black; padding: 2px 8px; border-radius: 4px; font-weight: 600; text-align: center;">触发</div>
+      <div style="color: #cbd5e1;">/collect-paper 或 手动编译命令</div>
+
+      <div style="color: #64748b; text-align: center;">&#8595;</div>
+      <div></div>
+
+      <div style="background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 4px; text-align: center;">Step 1</div>
+      <div style="color: #cbd5e1;"><b>存 raw data</b> — PDF/博文存入 raw/，元数据写入 raw/index.json</div>
+
+      <div style="color: #64748b; text-align: center;">&#8595;</div>
+      <div></div>
+
+      <div style="background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 4px; text-align: center;">Step 2</div>
+      <div style="color: #cbd5e1;"><b>LLM 提取概念</b> — Claude 读论文，输出 concepts: ["diffusion policy", "action chunking", ...]</div>
+
+      <div style="color: #64748b; text-align: center;">&#8595;</div>
+      <div></div>
+
+      <div style="background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 4px; text-align: center;">Step 3</div>
+      <div style="color: #cbd5e1;"><b>LLM 写论文页</b> — 不是模板填充，而是 LLM 写中文方法深度解读 + 和已有知识的关联</div>
+
+      <div style="color: #64748b; text-align: center;">&#8595;</div>
+      <div></div>
+
+      <div style="background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 4px; text-align: center;">Step 4</div>
+      <div style="color: #cbd5e1;"><b>LLM 更新概念页</b> — 如果 "diffusion policy" 概念页已存在，LLM 增量补充新论文的贡献</div>
+
+      <div style="color: #64748b; text-align: center;">&#8595;</div>
+      <div></div>
+
+      <div style="background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 4px; text-align: center;">Step 5</div>
+      <div style="color: #cbd5e1;"><b>更新索引</b> — README.md, 分类页, 概念索引（这部分可以用模板）</div>
+
+      <div style="color: #64748b; text-align: center;">&#8595;</div>
+      <div></div>
+
+      <div style="background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 4px; text-align: center;">Step 6</div>
+      <div style="color: #cbd5e1;"><b>嵌入更新</b> — 新论文加入 embeddings.npy + corpus_metadata.json</div>
+    </div>
+  </div>
+
+  <!-- Wiki as Taste Model -->
+  <div style="background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+    <h3 style="margin-bottom: 0.75rem;">Wiki 如何驱动推荐（替代 taste_profile.yaml）</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.85rem;">
+      <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 1rem;">
+        <div style="font-weight: 600; color: #ef4444; margin-bottom: 0.5rem;">现在: taste_profile.yaml</div>
+        <div style="color: #94a3b8; line-height: 1.6;">
+          keywords_positive: ["diffusion policy"]<br>
+          keywords_negative: ["survey"]<br>
+          authors_whitelist: []<br>
+          <br>
+          <span style="color: #ef4444;">&#10005;</span> 扁平、浅、无法表达复杂偏好
+        </div>
+      </div>
+      <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 1rem;">
+        <div style="font-weight: 600; color: #22c55e; margin-bottom: 0.5rem;">未来: Wiki 语义分析</div>
+        <div style="color: #94a3b8; line-height: 1.6;">
+          wiki/concepts/ 有 30 个概念页<br>
+          "diffusion policy" 有 8 篇论文 → 高权重<br>
+          "survey" 有 0 篇 → 低兴趣<br>
+          <br>
+          <span style="color: #22c55e;">&#10003;</span> 概念密度 = 兴趣图谱
+        </div>
+      </div>
+    </div>
+    <div style="margin-top: 1rem; font-size: 0.85rem; color: #94a3b8;">
+      <b>Phase 2 策略:</b> taste_profile.yaml 保留作为硬规则（Level 1），Wiki 概念密度作为 Level 2 的补充信号（概念权重 + 嵌入相似度混合），Level 3 LLM 精排时注入 wiki 概念索引作为上下文。
+    </div>
+  </div>
+
+  <!-- Linting & Q&A (Future) -->
+  <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.5rem;">
+    <h3 style="margin-bottom: 0.75rem;">Phase 3 预览: Linting + Q&A</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.85rem;">
+      <div style="color: #94a3b8;">
+        <b>Linting (Karpathy "health checks")</b><br>
+        &#8226; 找 wiki 中不一致的描述<br>
+        &#8226; 发现缺失的关联（两篇论文应该链接但没有）<br>
+        &#8226; 建议新概念文章候选<br>
+        &#8226; 补全缺失的方法对比
+      </div>
+      <div style="color: #94a3b8;">
+        <b>Q&A (研究助手)</b><br>
+        &#8226; "diffusion policy 和 flow matching 有什么区别？"<br>
+        &#8226; "最近 sim-to-real 方向有什么新进展？"<br>
+        &#8226; 输出回填 wiki，知识不断积累
+      </div>
+    </div>
+  </div>
+
+</div>

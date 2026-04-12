@@ -2,6 +2,9 @@ __pycache__/
 *.pyc
 .pytest_cache/
 logs/
+log/
+*.log
+*.stdout
 data/*.npy
 data/embeddings/
 wiki/
