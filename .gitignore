@@ -7,5 +7,5 @@ log/
 *.stdout
 data/*.npy
 data/embeddings/
-wiki/
+data/scored_today.json
 .superpowers/
