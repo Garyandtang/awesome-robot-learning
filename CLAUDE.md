@@ -134,6 +134,41 @@ python3 -c "from scripts.wiki_compiler import compile_paper_v2; compile_paper_v2
 python3 -c "from scripts.index_builder import build_all_indexes; build_all_indexes()"
 ```
 
+## Projects (Private Submodule)
+
+`projects/` is a **private** git submodule companion to `wiki/`. It holds in-progress work — plans, implementation logs, experiment records — that belongs to gary, not to the shareable wiki.
+
+### Directory layout
+
+```
+projects/
+├── INDEX.md                 # Project index (status + TL;DR per project)
+├── README.md                # Conventions
+├── TEMPLATE/                # Copy-to-start-new-project
+└── <slug>/
+    ├── plan.md              # Forward-looking 计划书
+    ├── log.md               # Append-only 实现记录
+    ├── discussion.md        # Optional archived brainstorm history
+    └── experiments/
+        └── YYYY-MM-DD-<name>.md
+```
+
+### Navigation protocol (Q&A with both submodules)
+
+For research-landscape questions (what does paper X claim, what is concept Y, how are topics organised): start in `wiki/`.
+
+For "what is gary currently working on / what were the results of experiment Z / what's the next action on project P" questions: start in `projects/INDEX.md`, then drill into `projects/<slug>/{plan,log}.md` and relevant `experiments/`.
+
+### Cross-reference rules
+
+- `projects/` MAY link into `wiki/` using `[[wiki/concepts/<slug>]]`, `[[wiki/papers/<arxiv_id>]]`, `[[wiki/codebase/<slug>]]`.
+- `wiki/` MUST NOT link back into `projects/`. Violating this pollutes the wiki's shareability.
+- Within a project, relative links work: `[[experiments/2026-05-01-alpha1-baseline]]`.
+
+### Slug convention
+
+kebab-case describing the research thrust (not a phase or version). Examples: `force-control-policy`, `external-force-estimation`. Phase information lives inside `plan.md`.
+
 ## Commit Style
 
 - `Add <Paper Name> paper`
