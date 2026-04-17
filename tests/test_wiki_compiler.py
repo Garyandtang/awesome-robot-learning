@@ -166,7 +166,7 @@ def test_get_concept_index_from_directory(tmp_path):
     index = get_concept_index(wiki_dir=tmp_path)
     assert len(index) == 2
 
-def test_build_index_pages_creates_readme(tmp_path):
+def test_build_index_pages_creates_canonical_indexes(tmp_path):
     papers_dir = tmp_path / "papers"
     papers_dir.mkdir(parents=True)
     (papers_dir / "2604.12345.md").write_text("---\ntitle: Test\n---\n# Test")
@@ -174,8 +174,9 @@ def test_build_index_pages_creates_readme(tmp_path):
     concepts_dir.mkdir(parents=True)
     (concepts_dir / "diffusion-policy.md").write_text("# DP")
     build_index_pages(wiki_dir=tmp_path)
-    readme = tmp_path / "README.md"
-    assert readme.exists()
+    assert (tmp_path / "INDEX.md").exists()
+    assert (tmp_path / "papers" / "INDEX.md").exists()
+    assert (tmp_path / "concepts" / "INDEX.md").exists()
 
 def test_lint_wiki_detects_orphan_papers(tmp_path):
     papers_dir = tmp_path / "papers"

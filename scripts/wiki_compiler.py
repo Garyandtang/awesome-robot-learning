@@ -28,10 +28,17 @@ CATEGORIES_DIR = WIKI_DIR / "categories"
 def _call_claude(prompt: str, timeout: int = 300) -> str:
     """Call claude --print with a prompt and return stdout.
 
+    File-writing / shell tools are disabled so Claude is forced to emit
+    the requested content to stdout instead of trying to Write(...) it to
+    disk and failing on permission approval in a non-interactive context.
+
     Raises RuntimeError if claude exits non-zero.
     """
     result = subprocess.run(
-        ["claude", "--print", "-p", prompt],
+        [
+            "claude", "--print", "-p", prompt,
+            "--disallowedTools", "Write Edit MultiEdit NotebookEdit Bash",
+        ],
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -435,112 +442,10 @@ def update_concept_page(
 
 
 def build_index_pages(wiki_dir: Path = WIKI_DIR) -> None:
-    """Rebuild all index files: INDEX.md, papers/INDEX.md, concepts/INDEX.md, TOPIC-MAP.md, and README.md."""
+    """Rebuild canonical wiki index files: INDEX.md, papers/INDEX.md, concepts/INDEX.md, codebase/INDEX.md, TOPIC-MAP.md."""
     from scripts.index_builder import build_all_indexes
 
     build_all_indexes(wiki_dir)
-
-    # Also keep legacy README and category indexes
-    build_wiki_readme(wiki_dir)
-
-    categories_dir = wiki_dir / "categories"
-    categories_dir.mkdir(parents=True, exist_ok=True)
-
-    categories: dict[str, list[dict]] = {}
-    papers_dir = wiki_dir / "papers"
-    if papers_dir.is_dir():
-        for md_file in sorted(papers_dir.glob("*.md")):
-            content = md_file.read_text(encoding="utf-8")
-            venue = _extract_frontmatter_field(content, "venue")
-            if venue:
-                categories.setdefault(venue, []).append(
-                    {"file": md_file.name, "title": _extract_frontmatter_field(content, "title") or md_file.stem}
-                )
-
-    for category in categories:
-        build_category_index(category, wiki_dir)
-
-
-def build_wiki_readme(wiki_dir: Path = WIKI_DIR) -> None:
-    """Build the wiki home page (README.md)."""
-    papers_dir = wiki_dir / "papers"
-    concepts_dir = wiki_dir / "concepts"
-    categories_dir = wiki_dir / "categories"
-
-    paper_count = len(list(papers_dir.glob("*.md"))) if papers_dir.is_dir() else 0
-    concept_count = len(list(concepts_dir.glob("*.md"))) if concepts_dir.is_dir() else 0
-
-    # Collect paper links
-    paper_links: list[str] = []
-    if papers_dir.is_dir():
-        for md_file in sorted(papers_dir.glob("*.md")):
-            title = _extract_frontmatter_field(
-                md_file.read_text(encoding="utf-8"), "title"
-            ) or md_file.stem
-            paper_links.append(f"- [{title}](papers/{md_file.name})")
-
-    # Collect concept links
-    concept_links: list[str] = []
-    if concepts_dir.is_dir():
-        for md_file in sorted(concepts_dir.glob("*.md")):
-            name = md_file.stem.replace("-", " ").title()
-            concept_links.append(f"- [{name}](concepts/{md_file.name})")
-
-    today = date.today().isoformat()
-
-    readme_content = f"""# Robot Learning Research Wiki
-
-> LLM-compiled knowledge base following Karpathy's method.
-> Last updated: {today}
-
-## Stats
-
-- Papers: {paper_count}
-- Concepts: {concept_count}
-
-## Papers
-
-{chr(10).join(paper_links) if paper_links else "_No papers yet._"}
-
-## Concepts
-
-{chr(10).join(concept_links) if concept_links else "_No concepts yet._"}
-"""
-
-    readme_path = wiki_dir / "README.md"
-    readme_path.write_text(readme_content, encoding="utf-8")
-    logger.info("Built wiki README: %s", readme_path)
-
-
-def build_category_index(
-    category: str, wiki_dir: Path = WIKI_DIR
-) -> None:
-    """Build a category index page."""
-    categories_dir = wiki_dir / "categories"
-    categories_dir.mkdir(parents=True, exist_ok=True)
-    papers_dir = wiki_dir / "papers"
-
-    # Find papers matching this category/venue
-    paper_links: list[str] = []
-    if papers_dir.is_dir():
-        for md_file in sorted(papers_dir.glob("*.md")):
-            content = md_file.read_text(encoding="utf-8")
-            venue = _extract_frontmatter_field(content, "venue")
-            if venue and venue.lower() == category.lower():
-                title = _extract_frontmatter_field(content, "title") or md_file.stem
-                paper_links.append(f"- [{title}](../papers/{md_file.name})")
-
-    category_content = f"""# {category}
-
-## Papers
-
-{chr(10).join(paper_links) if paper_links else "_No papers in this category yet._"}
-"""
-
-    filename = f"{_slugify(category)}.md"
-    output_path = categories_dir / filename
-    output_path.write_text(category_content, encoding="utf-8")
-    logger.info("Built category index: %s", output_path)
 
 
 def _extract_frontmatter_field(content: str, field: str) -> str | None:
@@ -705,7 +610,9 @@ def _build_step1_prompt(
 
 ## 输出要求
 
-输出一个完整的 Markdown 文件，包含两部分：
+**直接将以下 Markdown 内容作为文本输出到 stdout。不要调用任何工具，不要尝试写入文件到磁盘——调用方会自行接收 stdout 并写入目标路径。**
+
+输出一段完整的 Markdown 文本，包含两部分：
 
 ### Part A: YAML Frontmatter
 
@@ -994,7 +901,7 @@ def compile_paper_v2(
         raw_content, concepts_index, topic_map, aliases_block=aliases_block
     )
     logger.info("Step 1: analyzing %s (%s)", arxiv_id, meta["title"])
-    step1_output = _call_claude(step1_prompt, timeout=1200)
+    step1_output = _call_claude(step1_prompt, timeout=240)
 
     try:
         parsed = _parse_step1_output(step1_output)
@@ -1051,7 +958,7 @@ def compile_paper_v2(
                      len(concept_pages), len(new_concepts_in_fm))
 
         try:
-            step2_output = _call_claude(step2_prompt, timeout=1200)
+            step2_output = _call_claude(step2_prompt, timeout=240)
             concept_results = _parse_step2_output(step2_output)
 
             for cr in concept_results:
